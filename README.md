@@ -21,7 +21,7 @@ See the [Contributing Guide](./CONTRIBUTING.md).
 ```bash
 ├── apps - Apps sample demonstrating the use of Cortado
 │   ├── ...
-├── notebooks - Notebooks demonstrating use of Cortado via Colab
+├── notebooks - Notebooks demonstrating use of of Cortado using Colab notebooks
 │   ├── ...
 ├── code - Sample code and tutorials
 │   ├── ...
@@ -29,10 +29,9 @@ See the [Contributing Guide](./CONTRIBUTING.md).
 
 ## Examples
 
-| Category  |                  Product                   |                            Description                            |
-| :-------: | :----------------------------------------: | :---------------------------------------------------------------: |
-|   Apps    |         [Gradio/](./apps/gradio/)          | Lightweight locally deployable chat interface to try out Cortado. |
-| Notebooks | [Data Agent](./notebooks/data_agent.ipynb) |               Colab notebook to quickly use Cortado               |
+| Category |          Product          |                            Description                            |
+| :------: | :-----------------------: | :---------------------------------------------------------------: |
+|   Apps   | [Gradio/](./apps/gradio/) | Lightweight locally deployable chat interface to try out Cortado. |
 
 ## Disclaimer
 
