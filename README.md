@@ -35,4 +35,4 @@ See the [Contributing Guide](./CONTRIBUTING.md).
 
 ## Disclaimer
 
-This is not an officially supported Google product. The code in this repository is for demonstrative purposes only.
+This is not an officially supported Google product. The code in this repository is for demonstrative purposes only. To protect your privacy, avoid entering any personally identifiable information or sensitive data that you wouldn't want shared with a third party.
