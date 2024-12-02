@@ -24,9 +24,9 @@ Run the python file either via terminal or directly using an IDE of choice.
 
 The interface currently takes four inputs
 
-- Billing project: the billing project ID of the project that has the API enabled
-- Project ID: the project that holds the dataset you are using with DataQnA
-- Dataset ID: the dataset to be referenced by DataQnA
+- GCP billing project ID: the billing project ID of the project that has the API enabled
+- GCP Project ID: the project that holds the dataset you are using with DataQnA
+- BigQuery Dataset ID: the dataset to be referenced by DataQnA
 - Table ID: the table to be referenced by DataQnA
 
 Info: the latter three are used to construct the datasource reference

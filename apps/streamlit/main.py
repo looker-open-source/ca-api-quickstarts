@@ -1,6 +1,3 @@
-# Inspired by mdeluna
-# Enhanced to be used with public datasets
-
 import streamlit as st
 
 
@@ -67,12 +64,11 @@ def get_bearer_token():
     return creds.token
 
 
-access_token = get_bearer_token()
+ACCESS_TOKEN = get_bearer_token()
 billing_project = ""  # ADD YOUR BILLING PROJECT
-print(f"Bearer token: {access_token}")
 
 url = f"https://dataqna.googleapis.com/v1alpha1/projects/{billing_project}:askQuestion"
-headers = {"Authorization": f"Bearer {access_token}"}
+headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 st.set_page_config(layout="wide")
 
@@ -227,7 +223,6 @@ def get_stream(url, json) -> str:
             elif "chart" in data_json["systemMessage"]:
                 handle_chart_response(data_json["systemMessage"]["chart"])
 
-            # print("\n")
             acc = ""
     return data_json
 
