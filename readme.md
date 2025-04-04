@@ -256,4 +256,4 @@ gcloud artifacts repositories delete cortado-docker-repo --location="${REGION}" 
 
 If you need access to this repo for a colleague, please email data-qna-api-feedback@google.com
 
-For more information, fill out the interest form to stay updated on new API developments and transition documentation.
+For more information, fill out the [interest form](https://docs.google.com/forms/d/e/1FAIpQLSfb-vFXVDrQDij-nsnh2MsykBEAQtrSinunQQGaqqkcyBbYtA/viewform) to stay updated on new API developments and transition documentation.
