@@ -1,0 +1,43 @@
+ {
+  "comment": "This file maps proto services/RPCs to the corresponding library clients/methods",
+  "language": "python",
+  "libraryPackage": "google.cloud.dataqna_v1alpha1",
+  "protoPackage": "google.cloud.dataqna.v1alpha1",
+  "schema": "1.0",
+  "services": {
+    "DataQuestionService": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "DataQuestionServiceClient",
+          "rpcs": {
+            "AskQuestion": {
+              "methods": [
+                "ask_question"
+              ]
+            }
+          }
+        },
+        "grpc-async": {
+          "libraryClient": "DataQuestionServiceAsyncClient",
+          "rpcs": {
+            "AskQuestion": {
+              "methods": [
+                "ask_question"
+              ]
+            }
+          }
+        },
+        "rest": {
+          "libraryClient": "DataQuestionServiceClient",
+          "rpcs": {
+            "AskQuestion": {
+              "methods": [
+                "ask_question"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
