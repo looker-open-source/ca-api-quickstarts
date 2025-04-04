@@ -132,16 +132,16 @@ Semantic layers act as a translation layer between raw data and business users, 
 3. **Metric Definitions**: Establishing consistent calculations and aggregations
 4. **Enhanced Accuracy**: Providing guardrails for query generation
 
-Internal testing shows that Looker's semantic layer reduces data errors in GenAI natural language queries by two-thirds compared to ungoverned data warehouse tables. As use cases become more complex—involving multiple tables, joins, and complex calculations—semantic layers excel by offloading reasoning complexity from the AI model.
+Internal testing shows that Looker's semantic layer reduces data errors in GenAI natural language queries by two-thirds compared to ungoverned data warehouse tables. As use cases become more complex—involving multiple tables, joins, and complex calculations—semantic layers like Looker's excel by offloading reasoning complexity from the AI model.
 
 #### Types of Semantic Layers
 
 The application supports two types of semantic layers:
 
-1. **YAML-Based Semantic Layer** (BigQuery)
+1. **YAML-Based Metadata Layer** (BigQuery)
    - Automatically generated with table/field descriptions, synonyms, and relationships
    - Can be manually edited to improve performance for specific use cases
-   - Approximates the benefits of a formal semantic model
+   - Gives some benefits of a formal semantic model
 
 2. **LookML Semantic Layer** (Looker)
    - Leverages existing LookML models with rich metadata
