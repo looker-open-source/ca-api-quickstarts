@@ -17,7 +17,6 @@ google-cloud-aiplatform==1.83.0
 google-cloud-bigquery==3.30.0
 google-cloud-bigquery-storage==2.30.0
 google-cloud-core==2.4.2
-file:dataqna-v1alpha1-py.tar.gz
 google-cloud-datastore==2.20.2
 google-cloud-resource-manager==1.14.1
 google-cloud-storage==2.19.0
