@@ -7,6 +7,7 @@ cachetools==5.5.2
 certifi==2025.1.31
 charset-normalizer==3.4.1
 click==8.1.8
+db-dtypes==1.4.2
 docstring_parser==0.16
 gitdb==4.0.12
 GitPython==3.1.44
@@ -14,6 +15,7 @@ google-api-core==2.24.1
 google-auth==2.38.0
 google-cloud-aiplatform==1.83.0
 google-cloud-bigquery==3.30.0
+google-cloud-bigquery-storage==2.30.0
 google-cloud-core==2.4.2
 file:dataqna-v1alpha1-py.tar.gz
 google-cloud-datastore==2.20.2
