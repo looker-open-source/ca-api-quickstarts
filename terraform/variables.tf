@@ -3,11 +3,6 @@ variable "project_id" {
   type        = string
 }
 
-variable "datastore_project_id" {
-  description = "The GCP project ID where the datastore is present"
-  type        = string
-}
-
 variable "region" {
   description = "The GCP region"
   type        = string
@@ -74,4 +69,3 @@ variable "top_p" {
   default     = 0.7
   sensitive   = false
 }
-
