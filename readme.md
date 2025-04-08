@@ -55,8 +55,8 @@ gcloud services enable dataqna.googleapis.com people.googleapis.com aiplatform.g
 Clone the repository and navigate to the project directory:
 
 ```bash
-git clone https://github.com/your-repository/cortado-data-qa-agent.git
-cd cortado-data-qa-agent
+git clone https://github.com/looker-open-source/ca-api-quickstarts.git
+cd ca-api-quickstarts
 ```
 
 ### 5. Configuration
@@ -64,12 +64,12 @@ cd cortado-data-qa-agent
 Create a `.env` file in the project root with the following variables:
 
 ```
-PROJECT_ID=your-project-id
+GOOGLE_CLOUD_PROJECT=your-project-id
 DATASTORE_PROJECT_ID=your-datastore-project-id
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 GEMINI_REGION=us-central1
-MODEL=gemini-1.5-pro
+MODEL=gemini-2.0-flash-001
 ```
 
 ### 6. Installation
