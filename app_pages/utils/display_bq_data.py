@@ -160,8 +160,8 @@ def find_first_ten_matching(data_list: List[Tuple[Any, int]], search_string: str
     """Finds the first ten items in a list that contain a specific string."""
     matching_items: List[Any] = []
     for item in data_list:
-        if isinstance(item[0], str) and search_string.lower() in item[0].lower():
-            matching_items.append(item[0])
+        if isinstance(item, str) and search_string.lower() in item.lower():
+            matching_items.append(item)
             if len(matching_items) == 10:
                 break
     return matching_items
