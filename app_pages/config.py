@@ -22,10 +22,9 @@ from app_pages.utils.gemini import (
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-gemini_project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+gemini_project_id = os.getenv("PROJECT_ID")
 gemini_region = os.getenv("GEMINI_REGION")
 bq_location = os.getenv("BQ_LOCATION")
-
 
 # --- Utility Functions ---
 def display_success_message(message, icon="✅", duration=1):
