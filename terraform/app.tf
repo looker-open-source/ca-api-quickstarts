@@ -20,8 +20,8 @@ resource "google_cloud_run_service" "cortado" {
           container_port = 8080
         }
         env {
-          name  = "GOOGLE_CLOUD_PROJECT"
-          value = var.datastore_project_id
+          name  = "PROJECT_ID"
+          value = var.project_id
         }
         env {
           name  = "REDIRECT_URI"
@@ -68,3 +68,4 @@ resource "google_cloud_run_service" "cortado" {
     latest_revision = true
     percent         = 100
   }
+}
