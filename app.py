@@ -1,31 +1,29 @@
 import asyncio
 import os
-
 import streamlit as st
 from dotenv import load_dotenv
 from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError
-
 from backend.auth import authenticate, get_user_data
-from backend.datastore import return_da_results, setup_datastore_client
+
 # https://github.com/readybuilderone/streamlit-multiplepage-simpleauth/blob/main/utils/menu.py
 load_dotenv(override=True)
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-DATASTORE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+PROJECT_ID = os.getenv("PROJECT_ID")
 
 # Validate credentials
 if not all(
         (GOOGLE_CLIENT_ID,
             GOOGLE_CLIENT_SECRET,
-            REDIRECT_URI,
-            DATASTORE_PROJECT_ID)
+            REDIRECT_URI, 
+            PROJECT_ID)
 ):
     st.error("Missing required environment variables. Check .env file."
              f"Current variables {GOOGLE_CLIENT_ID=} "
-             f"{GOOGLE_CLIENT_SECRET=} {REDIRECT_URI=} {DATASTORE_PROJECT_ID=}")
+             f"{GOOGLE_CLIENT_SECRET=} {REDIRECT_URI=} ")
     st.stop()
 
 client = GoogleOAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
@@ -58,7 +56,7 @@ def _authenticator():
                 st.write("not logged in yet")
     else:
         if "initialized" not in st.session_state:
-            st.session_state.project_id = DATASTORE_PROJECT_ID
+            st.session_state.project_id = PROJECT_ID
             st.session_state.dataqna_project_id = "bigquery-public-data"
             st.session_state.dataset_id = "san_francisco"
             st.session_state.table_ids = ("street_trees",)
@@ -71,13 +69,6 @@ def _authenticator():
                                 title="Chat",
                                 icon="🤖")])
         pg.run()
-
-        daclient = setup_datastore_client(
-            token=st.session_state.token,
-            DATASTORE_PROJECT_ID=DATASTORE_PROJECT_ID,
-            GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID,
-            GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET,
-        )
 
         # gimme_results = return_da_results(da_client=daclient)
         # st.write(gimme_results
