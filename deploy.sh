@@ -6,11 +6,11 @@ DATASTORE_PROJECT_ID=""
 REGION="us-central1"
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
-GEMINI_REGION = "us-east1"
-BQ_LOCATION = "us"
-MODEL = "gemini-2.0-flash-001"
-TEMPERATURE = 0.2
-TOP_P = 0.7
+GEMINI_REGION="us-east1"
+BQ_LOCATION="us"
+MODEL="gemini-2.0-flash-001"
+TEMPERATURE=0.2
+TOP_P=0.7
 # ------------------------------------------
 # Provided by the user: end
 # ------------------------------------------
