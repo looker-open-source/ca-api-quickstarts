@@ -14,7 +14,7 @@ load_dotenv(override=True)
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-DATASTORE_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+DATASTORE_PROJECT_ID = os.getenv("PROJECT_ID")
 
 # Validate credentials
 if not all(
