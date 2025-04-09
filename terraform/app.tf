@@ -68,3 +68,4 @@ resource "google_cloud_run_service" "cortado" {
     latest_revision = true
     percent         = 100
   }
+}
