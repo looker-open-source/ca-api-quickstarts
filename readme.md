@@ -34,7 +34,7 @@ First, ensure you have the following prerequisites installed:
 Enable the required APIs in your Google Cloud project:
 
 ```bash
-gcloud services enable dataqna.googleapis.com people.googleapis.com aiplatform.googleapis.com --project=YOUR_PROJECT_ID
+gcloud services enable dataqna.googleapis.com people.googleapis.com aiplatform.googleapis.com run.googleapis.com cloudbuild.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
 ### 3. OAuth Configuration
