@@ -31,8 +31,8 @@ def gemini_request(project: str, location: str, prompt: str, max_retries: int = 
     """
 
     vertexai.init(project=project, location=location)
-    config = GenerationConfig(temperature=float(temperature),
-                              top_p=float(top_p))
+    config = GenerationConfig(temperature=0.2,
+                              top_p=0.8)
     model = GenerativeModel(selected_model)
 
     retry_delay = delay

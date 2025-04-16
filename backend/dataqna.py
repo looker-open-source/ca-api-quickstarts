@@ -42,3 +42,37 @@ def generate_response(messages: list[dataqna_v1alpha1.Message],
         credentials=Credentials(token=token['access_token']))
     # Make the request
     return client.ask_question(request=request)
+
+
+def generate_looker_response(messages,
+                             looker_instance_uri,
+                             lookml_model,
+                             explore,
+                             looker_client_id,
+                             looker_client_secret,
+                             project,
+                             system_instruction,
+                             token):
+    datasource_references = dataqna_v1alpha1.DatasourceReferences(
+          looker=dataqna_v1alpha1.LookerExploreReferences(
+    explore_references=[dataqna_v1alpha1.LookerExploreReference(
+         looker_instance_uri=looker_instance_uri,
+         lookml_model=lookml_model,
+         explore=explore,
+     )],
+    credentials=dataqna_v1alpha1.Credentials(
+         oauth=dataqna_v1alpha1.OAuthCredentials(
+             secret=dataqna_v1alpha1.OAuthCredentials.SecretBased(
+                 client_id=looker_client_id,
+                 client_secret=looker_client_secret,))),))
+    request = dataqna_v1alpha1.AskQuestionRequest(
+        project=f"projects/{project}",
+        messages=messages,
+        context=dataqna_v1alpha1.InlineContext(
+            system_instruction=system_instruction,
+            datasource_references=datasource_references)
+                                                )
+    client = dataqna_v1alpha1.DataQuestionServiceClient(
+        credentials=Credentials(token=token['access_token']))
+    # Make the request
+    return client.ask_question(request=request)
