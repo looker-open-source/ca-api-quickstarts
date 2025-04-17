@@ -19,7 +19,7 @@ PROJECT_ID = os.getenv("PROJECT_ID")
 if not all(
         (GOOGLE_CLIENT_ID,
             GOOGLE_CLIENT_SECRET,
-            REDIRECT_URI, 
+            REDIRECT_URI,
             PROJECT_ID)
 ):
     st.error("Missing required environment variables. Check .env file."
@@ -63,6 +63,18 @@ def _authenticator():
             st.session_state.table_ids = ("street_trees",)
             st.session_state.system_instruction = "answer questions"
             st.session_state.initialized = True
+            if "looker_host" not in st.session_state:
+                st.session_state.looker_host = "www.demo.com"
+            if "looker_secret" not in st.session_state:
+                st.session_state.looker_secret = "fillin"
+            if "looker_client_id" not in st.session_state:
+                st.session_state.looker_client_id = "fillin"
+            if "looker_explore" not in st.session_state:
+                st.session_state.looker_explore = "fillin"
+            if "looker_model" not in st.session_state:
+                st.session_state.looker_model = "fillin"
+            if "data_source" not in st.session_state:
+                st.session_state.data_source = "BigQuery"
         pg = st.navigation([
                         st.Page("app_pages/config.py",
                                 title="Agent Factory", icon="⚙️"),

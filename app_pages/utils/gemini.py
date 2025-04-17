@@ -6,8 +6,8 @@ import time
 import logging
 
 selected_model = os.getenv("MODEL")
-temperature = os.getenv("TEMPERATURE")
-top_p = os.getenv("TOP_P")
+set_temperature = os.getenv("TEMPERATURE")
+set_top_p = os.getenv("TOP_P")
 
 
 logging.basicConfig(level=logging.INFO)
@@ -29,10 +29,23 @@ def gemini_request(project: str, location: str, prompt: str, max_retries: int = 
     Returns:
         The generated text from Gemini, or an error message string if an error occurred.
     """
+    if set_top_p is not None and isinstance(set_top_p, float):
+        top_p = float(set_top_p)
+        logging.info(f"Using top_p: {top_p}")
+    else:
+        top_p = 0.8
+        logging.info(f"Using default top_p: {top_p}")
+
+    if set_temperature is not None and isinstance(set_temperature, float):
+        temperature = float(set_temperature)
+        logging.info(f"Using temperature: {temperature}")
+    else:
+        temperature = 0.2
+        logging.info(f"Using default temperature: {temperature}")
 
     vertexai.init(project=project, location=location)
-    config = GenerationConfig(temperature=float(temperature),
-                              top_p=float(top_p))
+    config = GenerationConfig(temperature=0.2,
+                              top_p=0.8)
     model = GenerativeModel(selected_model)
 
     retry_delay = delay
