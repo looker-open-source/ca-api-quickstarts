@@ -70,7 +70,7 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 GEMINI_REGION=us-central1
 MODEL=gemini-2.0-flash-001
 BQ_LOCATION: BigQuery dataset location
-MODEL: Gemini model version
+REDIRECT_URI=http://localhost:8501
 TEMPERATURE: Temperature parameter for Gemini
 TOP_P: Top_p parameter for Gemini
 ```
