@@ -64,12 +64,15 @@ cd ca-api-quickstarts
 Create a `.env` file in the project root with the following variables:
 
 ```
-GOOGLE_CLOUD_PROJECT=your-project-id
-DATASTORE_PROJECT_ID=your-datastore-project-id
+PROJECT_ID=your-project-id
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 GEMINI_REGION=us-central1
 MODEL=gemini-2.0-flash-001
+BQ_LOCATION: BigQuery dataset location
+MODEL: Gemini model version
+TEMPERATURE: Temperature parameter for Gemini
+TOP_P: Top_p parameter for Gemini
 ```
 
 ### 6. Installation
@@ -92,19 +95,34 @@ Access the application at http://localhost:8501 in your web browser.
 
 ## Using the Application
 
-### Creating and Configuring Data Agents
+### Creating and Configuring Data Agents for BigQuery
 
 1. **Login**: Click "Login with Google" and authorize the application
 2. **Navigate to Agent Factory**: You'll be directed to the "Data Agent Configuration" page
 3. **Select Data Source**:
+   - Slect BigQuery as the DataSource
    - Choose your BigQuery Project from the dropdown
    - Select the relevant BigQuery Dataset
-4. **Select Tables**: Check the boxes next to specific tables you want to query
-5. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
-6. **Generate Configuration**: Click "Generate / Update Agent Config" and wait for the process to complete
-7. **Review and Finalize**: Examine the automatically generated YAML configuration and edit if needed
-8. **Update Agent**: Click "Update Agent with this Configuration"
+5. **Select Tables**: Check the boxes next to specific tables you want to query
+6. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
+7. **Generate Configuration**: Click "Generate / Update Agent Config" and wait for the process to complete
+8. **Review and Finalize**: Examine the automatically generated YAML configuration and edit if needed
+9. **Update Agent**: Click "Update Agent with this Configuration"
 
+   ### Creating and Configuring Data Agents for Looker
+
+1. **Login**: Click "Login with Google" and authorize the application
+2. **Navigate to Agent Factory**: You'll be directed to the "Data Agent Configuration" page
+3. **Select Data Source**:
+   - Select Looker as the DataSource
+4. Enter in your Looker Host, Client ID, and Client Secret.
+5. Click Validate Credentials.
+6. **Select The Looker Model**: Check the boxes next to specific tables you want to query
+7. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
+8. **Select the Looker Explore**
+9. **Review and Finalize**: Make sure all your selection is accurate. 
+10. **Update Agent**: Navigate to the chat page and start chatting with your Looker Data Agent.
+    
 ### Querying Your Data
 
 Once your agent is configured:
@@ -240,7 +258,6 @@ gcloud artifacts repositories delete cortado-docker-repo --location="${REGION}" 
 
 ### Development Roadmap
 
-- Looker queries support in the quickstart (already supported in the API)
 - Agent YAML generation built directly into the API
 - Migration to a new API surface with enhanced capabilities
 - Public Preview in Q2 2025
