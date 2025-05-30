@@ -16,7 +16,7 @@ The API facilitates the implementation of Conversational Analytics Agents that a
 **Note:** This is a pre-GA product intended for test environments only. It should not be used in production environments or to process personal data or other data subject to legal or regulatory compliance requirements. This requires access to our preview allowlist. You can fill out a form to [express interest here](https://docs.google.com/forms/d/e/1FAIpQLSfb-vFXVDrQDij-nsnh2MsykBEAQtrSinunQQGaqqkcyBbYtA/viewform).
 
 ## Demo Usage Videos
-- Quick 90s Create and Query an Agent [Video Link](#)
+- Quick 90s Create and Query an Agent [Video Link](https://www.youtube.com/watch?v=VbAdWmhKmOE)
 - 5 min Deploy app full featured [Video Link](#)
 ## Getting Started
 
