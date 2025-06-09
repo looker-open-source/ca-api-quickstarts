@@ -1,6 +1,8 @@
 # Conversational Analytics API Quickstart
 
-**Note:** This repository is not officially maintained like a 1st-party GCP product.
+**Note 1:** This repository is not officially maintained like a 1st-party GCP product. 
+
+**Note 2:** This app version the DataQnA API, we are working to support the [new geminidataanalytics API](https://cloud.google.com/gemini/docs/conversational-analytics-api/overview)
 
 ## Overview
 
