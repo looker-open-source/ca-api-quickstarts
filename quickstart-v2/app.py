@@ -23,7 +23,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 load_dotenv()
-GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 
 st.markdown(
     """
@@ -68,12 +67,9 @@ SESSION_CONVERSATIONS = "all_conversations"
 
 
 # Dictionary and Token Keys
-TOKEN_ID_TOKEN = "id_token"
-TOKEN_REFRESH_TOKEN = "refresh_token"
 USER_INFO_EMAIL = "email"
 USER_INFO_NAME = "name"
 USER_INFO_PICTURE = "picture"
-OAUTH_RESULT_TOKEN = "token"
 
 # Chat Message Structure Keys
 CHAT_ROLE = "role"

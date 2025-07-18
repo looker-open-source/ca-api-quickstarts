@@ -18,6 +18,7 @@ from log_utils import handle_errors, handle_streamlit_exception
 
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 
+
 FS_USER_TOKENS_COLLECTION = "user_tokens"
 # Dictionary and Token Keys
 TOKEN_ID_TOKEN = "id_token"
@@ -40,15 +41,6 @@ SESSION_TOKEN = "token"
 SESSION_CREDS = "creds"
 SESSION_USER_INFO = "user_info"
 SESSION_USER_ID = "user_id"
-SESSION_MESSAGES = "messages"
-SESSION_CONVERSATION_ID = "conversation_id"
-SESSION_DATA_AGENT_ID = "data_agent_id"
-SESSION_PREV_BQ_PROJECT_ID = "prev_bq_project_id"
-SESSION_PREV_BQ_DATASET_ID = "prev_bq_dataset_id"
-SESSION_PREV_BQ_TABLE_ID = "prev_bq_table_id"
-SESSION_AGENTS_MAP = "all_agents_map"
-SESSION_CONVERSATIONS = "all_conversations"
-
 
 def access_secret_version(secret_id, version_id="latest"):
     """
