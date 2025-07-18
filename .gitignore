@@ -1,0 +1,18 @@
+.venv/* 
+quickstart-v2/.venv/*
+
+__pycache__/
+*.pyc
+
+uploads/
+
+.vscode/
+
+node_modules/
+
+# Ignore system files (e.g., macOS)
+.DS_Store
+
+# Ignore environment files
+build.txt
+output.txt
