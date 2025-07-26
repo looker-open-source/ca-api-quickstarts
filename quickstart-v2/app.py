@@ -1,50 +1,103 @@
-import json
 import os
+import uuid
 import traceback
-
 import altair as alt
-import google.api_core.exceptions
 import pandas as pd
 import proto
 import streamlit as st
+import google.auth
 from dotenv import load_dotenv
+from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf import field_mask_pb2
 from google.protobuf.json_format import MessageToDict
+from auth import Authenticator
+from app_secrets import get_secret
+from error_handling import (
+    log_error, log_user_login, log_user_logout,
+    handle_errors, handle_streamlit_exception
+)
 
-from auth_utils import access_secret_version, handle_authentication
-from log_utils import log_error, log_user_login, handle_streamlit_exception, handle_errors
+# --- gRPC on macOS workaround ---
+os.environ['GRPC_POLL_STRATEGY'] = 'poll'
 
-# --- Page and Style Configuration ---
+# --- Debug Timestamp ---
+start_time = pd.Timestamp.now()
+print(f"DEBUG: App started at {start_time}")
+
+# --- Page Config ---
 st.set_page_config(
     page_title="Conversational Analytics API",
-    page_icon="https://lh5.googleusercontent.com/h3jO5QoL0KNkqZMm_TAlWK-mdD4z4Mgbpaa3sTMXHN11CcNjZdSgJ5TknXC6_bpyjr_m7rcTvilUIJAi0qlmF4QxMkV1ElqHCECNJ9XDQGtpkwcqDjW76kE5yB4UV4DBu0LfyTtTceNCTxq4KruQnRQ0sDGtSvr1RboF25vB3bTxfbjYmsDPDQ=w1280",
+    page_icon="🗣️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 load_dotenv()
-GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 
+
+@st.cache_data
+def get_default_project_id():
+    """Tries to discover the default GCP project ID from the environment."""
+    try:
+        _, project_id = google.auth.default()
+        return project_id
+    except google.auth.exceptions.DefaultCredentialsError:
+        return None # Return None if no project can be found
+    except Exception as e:
+        handle_streamlit_exception(e, "get_default_project_id")
+
+# --- 1) Build or read stable session_id via URL query params ---
+params = st.query_params
+# --- 1) Build or read stable session_id via URL query params ---
+if "session_id" not in st.query_params:
+    st.query_params["session_id"] = str(uuid.uuid4())
+session_id = st.query_params["session_id"]
+
+# stash in session_state for easy access
+st.session_state["session_id"] = session_id
+
+# --- 2) Stub a minimal CookieManager API over session_state ---
+class SessionCookieManager:
+    def __init__(self, session_key="session_id"):
+        self._key = session_key
+    def get_all(self):
+        return {self._key: st.session_state.get(self._key)}
+    def get(self, name, default=None):
+        return st.session_state.get(name, default)
+    def set(self, name, value):
+        st.session_state[name] = value
+    def save(self):
+        # no‑op since session_state is in memory
+        pass
+
+
+# --- CSS Styling & Chat Input Pinning ---
 st.markdown(
     """
-<style>
-    .reportview-container { background: #f0f2f6; }
-    .sidebar .sidebar-content { background: #ffffff; }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        font-weight: bold;
-    }
-    .stTextInput>div>div>input { background-color: #ffffff; }
-    h1, h2, h3 { color: #1a1a1a; }
-</style>
-""",
-    unsafe_allow_html=True,
+    <style>
+      :root { --sidebar-width: 18rem; --page-padding: 1rem; }
+      [data-testid="stChatInputContainer"], [data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 75vw !important;
+        max-width: calc(100vw - var(--sidebar-width) - var(--page-padding)*2) !important;
+        background: #fff !important;
+        padding: 0.75rem 1rem !important;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
+        z-index: 9999 !important;
+      }
+      [data-testid="stVerticalBlock"] { padding-bottom: 6rem !important; }
+      .stButton>button { background-color: #4CAF50 !important; color: white !important; font-weight: bold !important; }
+      .stTextInput>div>div>input { background-color: #ffffff !important; }
+      h1, h2, h3 { color: #1a1a1a !important; }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
-# --- Constants ---
-
-# Widget Keys (for st.text_input, etc.)
+# --- Constants & Widget Keys ---
 WIDGET_BILLING_PROJECT = "billing_project"
 WIDGET_BQ_PROJECT_ID = "bq_project_id"
 WIDGET_BQ_DATASET_ID = "bq_dataset_id"
@@ -52,11 +105,8 @@ WIDGET_BQ_TABLE_ID = "bq_table_id"
 WIDGET_SYSTEM_INSTRUCTION = "system_instruction"
 WIDGET_CONVO_SEARCH = "convo_search"
 
-SESSION_LOGGED_IN = "logged_in"
-SESSION_TOKEN = "token"
 SESSION_CREDS = "creds"
 SESSION_USER_INFO = "user_info"
-SESSION_USER_ID = "user_id"
 SESSION_MESSAGES = "messages"
 SESSION_CONVERSATION_ID = "conversation_id"
 SESSION_DATA_AGENT_ID = "data_agent_id"
@@ -66,553 +116,293 @@ SESSION_PREV_BQ_TABLE_ID = "prev_bq_table_id"
 SESSION_AGENTS_MAP = "all_agents_map"
 SESSION_CONVERSATIONS = "all_conversations"
 
-
-# Dictionary and Token Keys
-TOKEN_ID_TOKEN = "id_token"
-TOKEN_REFRESH_TOKEN = "refresh_token"
 USER_INFO_EMAIL = "email"
 USER_INFO_NAME = "name"
 USER_INFO_PICTURE = "picture"
-OAUTH_RESULT_TOKEN = "token"
-
-# Chat Message Structure Keys
-CHAT_ROLE = "role"
-CHAT_CONTENT = "content"
 CHAT_ROLE_USER = "user"
 CHAT_ROLE_ASSISTANT = "assistant"
-
-# Processed API Result Keys
 RESULT_SQL = "sql"
 RESULT_DATAFRAME = "dataframe"
 RESULT_SUMMARY = "summary"
 RESULT_HAS_CHART = "has_chart"
 
+# --- Helper: Convert Protobuf to dict ---
+def _convert_proto_to_dict(msg):
+    if isinstance(msg, proto.marshal.collections.maps.MapComposite):
+        return {k: _convert_proto_to_dict(v) for k, v in msg.items()}
+    if isinstance(msg, proto.marshal.collections.RepeatedComposite):
+        return [_convert_proto_to_dict(x) for x in msg]
+    if isinstance(msg, (int, float, str, bool)):
+        return msg
+    return MessageToDict(msg, preserving_proto_field_name=True)
 
-# --- Top-Level Helper to Convert Protobuf to Dict ---
-def _convert_proto_to_dict(proto_message):
-    """Recursively converts a Protobuf message to a dictionary."""
-    if isinstance(proto_message, proto.marshal.collections.maps.MapComposite):
-        return {k: _convert_proto_to_dict(v) for k, v in proto_message.items()}
-    elif isinstance(proto_message, proto.marshal.collections.RepeatedComposite):
-        return [_convert_proto_to_dict(el) for el in proto_message]
-    elif isinstance(proto_message, (int, float, str, bool)):
-        return proto_message
-    else:
-        return MessageToDict(proto_message, preserving_proto_field_name=True)
+cookies = SessionCookieManager()
 
+# --- Authentication ---
+auth = Authenticator(cookies)
+auth.check_session()
+print(f"DEBUG: Session checked at {pd.Timestamp.now() - start_time}")
 
-# --- Main Application ---
-is_logged_in = handle_authentication()
+# --- Login Gate ---
+if not st.session_state.get("user_email"):
+    auth.login_widget()
+    st.stop()
+if SESSION_USER_INFO not in st.session_state:
+    st.error("Login succeeded but user info missing; please re-authenticate.")
+    st.stop()
+user_info = st.session_state[SESSION_USER_INFO]
+log_user_login(user_info[USER_INFO_EMAIL])
 
-if is_logged_in:
-    log_user_login(st.session_state[SESSION_USER_INFO][USER_INFO_EMAIL])
-    credentials = st.session_state[SESSION_CREDS]
-    data_agent_client = geminidataanalytics.DataAgentServiceClient(
-        credentials=credentials
-    )
-    data_chat_client = geminidataanalytics.DataChatServiceClient(
-        credentials=credentials
-    )
-    st.session_state.setdefault(SESSION_MESSAGES, [])
-    st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
-    st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
+# --- Session ID Initialization ---
+if "session_id" not in st.session_state:
+    token_info = st.session_state.get("auth_token_info", {})
+    claims = token_info.get("id_token_claims", {})
+    sid = claims.get("email") or claims.get("sub") or st.session_state.get("user_email") or str(uuid.uuid4())
+    st.session_state["session_id"] = sid
 
-    @handle_errors
-    def process_chat_stream(stream):
-        generated_sql, summary_text = "", ""
-        df = pd.DataFrame()
-        has_chart_signal = False
+# --- Refresh Credentials ---
+credentials = st.session_state.get(SESSION_CREDS)
+if credentials and credentials.expired and credentials.refresh_token:
+    credentials.refresh(GoogleAuthRequest())
 
-        for response in stream:
-            m = response.system_message
-            if hasattr(m, "data") and m.data:
-                if m.data.generated_sql:
-                    generated_sql = m.data.generated_sql
-                if (
-                    hasattr(m.data, "result")
-                    and hasattr(m.data.result, "schema")
-                    and hasattr(m.data.result, "data")
-                    and len(m.data.result.data) > 0
-                ):
-                    fields = [field.name for field in m.data.result.schema.fields]
-                    data_rows = [
-                        _convert_proto_to_dict(row) for row in m.data.result.data
-                    ]
-                    df = pd.DataFrame(data_rows, columns=fields)
-            elif hasattr(m, "text") and m.text and m.text.parts:
-                summary_text += "".join(m.text.parts)
+# --- Initialize GCP Clients ---
+print(f"DEBUG: Initializing GCP clients at {pd.Timestamp.now() - start_time}")
+data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
+data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
+print(f"DEBUG: GCP clients initialized at {pd.Timestamp.now() - start_time}")
 
-            if hasattr(m, "chart") and m.chart:
-                has_chart_signal = True
+# --- Default Session State ---
+st.session_state.setdefault(SESSION_MESSAGES, [])
+st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
+st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
 
-        return {
-            RESULT_SQL: generated_sql,
-            RESULT_DATAFRAME: df,
-            RESULT_SUMMARY: summary_text,
-            RESULT_HAS_CHART: has_chart_signal,
-        }
+# --- Process Chat Stream ---
+@handle_errors
+def process_chat_stream(stream):
+    gen_sql = ""
+    summary = ""
+    df = pd.DataFrame()
+    has_chart = False
+    for resp in stream:
+        m = resp.system_message
+        if getattr(m, "data", None):
+            if m.data.generated_sql:
+                gen_sql = m.data.generated_sql
+            rows = getattr(m.data.result, "data", [])
+            if rows:
+                df = pd.DataFrame(
+                    [_convert_proto_to_dict(r) for r in rows],
+                    columns=[f.name for f in m.data.result.schema.fields]
+                )
+        if getattr(m, "text", None) and m.text.parts:
+            summary += "".join(m.text.parts)
+        if getattr(m, "chart", None):
+            has_chart = True
+    return {RESULT_SQL: gen_sql, RESULT_DATAFRAME: df, RESULT_SUMMARY: summary, RESULT_HAS_CHART: has_chart}
 
-    def render_assistant_message(content):
-        if content.get(RESULT_SUMMARY):
-            st.markdown(content[RESULT_SUMMARY])
-
-        if content.get(RESULT_SQL):
-            with st.expander("Show Generated SQL"):
-                st.code(content[RESULT_SQL], language="sql")
-
-        df = content.get(RESULT_DATAFRAME)
-        if df is not None and not df.empty:
-            st.subheader("Data Result")
-            st.dataframe(df)
-
-            if content.get(RESULT_HAS_CHART):
-                st.subheader("Generated Chart")
-                try:
-                    if len(df.columns) >= 2:
-                        x_col, y_col = df.columns[0], df.columns[1]
-                        chart = (
-                            alt.Chart(df)
-                            .mark_bar()
-                            .encode(
-                                x=alt.X(
-                                    f"{x_col}:N",
-                                    sort="-y",
-                                    title=x_col.replace("_", " ").title(),
-                                ),
-                                y=alt.Y(
-                                    f"{y_col}:Q", title=y_col.replace("_", " ").title()
-                                ),
-                                tooltip=list(df.columns),
-                            )
-                            .properties(
-                                title=f"Chart of {y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}"
-                            )
-                        )
-                        st.altair_chart(chart, use_container_width=True)
-                    else:
-                        st.warning(
-                            "Data does not have enough columns to generate a chart."
-                        )
-                except Exception as e:
-                    st.error(f"Could not generate chart: {e}")
-
-    # --- Sidebar and Configuration. ---
-    user_info = st.session_state[SESSION_USER_INFO]
-    if user_info.get(USER_INFO_PICTURE):
-        st.sidebar.image(
-            user_info[USER_INFO_PICTURE], width=100, use_container_width="auto"
-        )
-    st.sidebar.write(f"**Name:** {user_info.get(USER_INFO_NAME)}")
-    st.sidebar.write(f"**Email:** {user_info.get(USER_INFO_EMAIL)}")
-    if st.sidebar.button("Logout"):
-        logout()
-    st.sidebar.divider()
-    st.sidebar.markdown("Enter your GCP project and data source details below.")
-
-    billing_project = st.sidebar.text_input(
-        "GCP Billing Project ID",
-        "bp-steveswalker-solutions-303",
-        key=WIDGET_BILLING_PROJECT,
-    )
-
-    with st.sidebar.expander("BigQuery Data Source", expanded=True):
-        bq_project_id = st.text_input(
-            "BQ Project ID", "bigquery-public-data", key=WIDGET_BQ_PROJECT_ID
-        )
-        bq_dataset_id = st.text_input("BQ Dataset ID", "faa", key=WIDGET_BQ_DATASET_ID)
-        bq_table_id = st.text_input(
-            "BQ Table ID", "us_airports", key=WIDGET_BQ_TABLE_ID
-        )
-
-        if (
-            st.session_state.get(SESSION_PREV_BQ_PROJECT_ID) != bq_project_id
-            or st.session_state.get(SESSION_PREV_BQ_DATASET_ID) != bq_dataset_id
-            or st.session_state.get(SESSION_PREV_BQ_TABLE_ID) != bq_table_id
-        ):
-            st.session_state[SESSION_DATA_AGENT_ID] = None
-            st.session_state[SESSION_CONVERSATION_ID] = None
-            st.session_state[SESSION_MESSAGES] = []
-            st.session_state[SESSION_PREV_BQ_PROJECT_ID] = bq_project_id
-            st.session_state[SESSION_PREV_BQ_DATASET_ID] = bq_dataset_id
-            st.session_state[SESSION_PREV_BQ_TABLE_ID] = bq_table_id
-            st.rerun()
-
-    with st.sidebar.expander("System Instructions"):
-        system_instruction = st.text_area(
-            "Agent Instructions",
-            "You are a helpful data analyst.",
-            height=150,
-            key=WIDGET_SYSTEM_INSTRUCTION,
-        )
-
-    st.title("Conversational Analytics API")
-
-    # --- UI Tabs ---
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["Chat", "Data Agent Management", "Conversation History", "Update Data Agent"]
-    )
-
-    with tab1:
-        st.header("Ask a question about your data")
-
-        if not st.session_state.get(SESSION_DATA_AGENT_ID):
-            agent_id = f"streamlit_agent_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}"
-            with st.spinner(f"Creating a temporary Data Agent '{agent_id}'..."):
-                try:
-                    bigquery_table = geminidataanalytics.BigQueryTableReference(
-                        project_id=bq_project_id,
-                        dataset_id=bq_dataset_id,
-                        table_id=bq_table_id,
-                    )
-                    data_refs = geminidataanalytics.DatasourceReferences(
-                        bq={"table_references": [bigquery_table]}
-                    )
-                    context = geminidataanalytics.Context(
-                        system_instruction=system_instruction,
-                        datasource_references=data_refs,
-                    )
-                    data_agent = geminidataanalytics.DataAgent(
-                        data_analytics_agent={"published_context": context}
-                    )
-
-                    req = geminidataanalytics.CreateDataAgentRequest(
-                        parent=f"projects/{billing_project}/locations/global",
-                        data_agent_id=agent_id,
-                        data_agent=data_agent,
-                    )
-                    data_agent_client.create_data_agent(request=req)
-
-                    st.session_state[SESSION_DATA_AGENT_ID] = agent_id
-                    st.success(f"Data Agent '{agent_id}' created.")
-                except Exception as e:
-                    st.error(f"Failed to create Data Agent: {e}")
-                    st.stop()
-
-        if not st.session_state.get(SESSION_CONVERSATION_ID):
-            convo_id = f"streamlit_convo_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}"
-            with st.spinner(f"Starting new conversation '{convo_id}'..."):
-                try:
-                    agent_path = f"projects/{billing_project}/locations/global/dataAgents/{st.session_state[SESSION_DATA_AGENT_ID]}"
-                    convo = geminidataanalytics.Conversation(agents=[agent_path])
-                    req = geminidataanalytics.CreateConversationRequest(
-                        parent=f"projects/{billing_project}/locations/global",
-                        conversation_id=convo_id,
-                        conversation=convo,
-                    )
-                    data_chat_client.create_conversation(request=req)
-                    st.session_state[SESSION_CONVERSATION_ID] = convo_id
-                    st.success(f"Conversation '{convo_id}' started.")
-                except Exception as e:
-                    st.error(f"Failed to create conversation: {e}")
-                    st.stop()
-
-        for message in st.session_state[SESSION_MESSAGES]:
-            with st.chat_message(message[CHAT_ROLE]):
-                if message[CHAT_ROLE] == CHAT_ROLE_USER:
-                    st.markdown(message[CHAT_CONTENT])
-                else:
-                    render_assistant_message(message[CHAT_CONTENT])
-
-        if prompt := st.chat_input("What would you like to know?"):
-            st.session_state[SESSION_MESSAGES].append(
-                {CHAT_ROLE: CHAT_ROLE_USER, CHAT_CONTENT: prompt}
-            )
-            with st.chat_message(CHAT_ROLE_USER):
-                st.markdown(prompt)
-
-            with st.chat_message(CHAT_ROLE_ASSISTANT):
-                with st.spinner("Thinking..."):
-                    try:
-                        user_message = geminidataanalytics.Message(
-                            user_message={"text": prompt}
-                        )
-                        convo_ref = geminidataanalytics.ConversationReference(
-                            conversation=f"projects/{billing_project}/locations/global/conversations/{st.session_state[SESSION_CONVERSATION_ID]}",
-                            data_agent_context={
-                                "data_agent": f"projects/{billing_project}/locations/global/dataAgents/{st.session_state[SESSION_DATA_AGENT_ID]}"
-                            },
-                        )
-                        chat_request = geminidataanalytics.ChatRequest(
-                            parent=f"projects/{billing_project}/locations/global",
-                            messages=[user_message],
-                            conversation_reference=convo_ref,
-                        )
-
-                        stream = data_chat_client.chat(request=chat_request)
-                        chat_results = process_chat_stream(stream)
-                        render_assistant_message(chat_results)
-                        st.session_state[SESSION_MESSAGES].append(
-                            {CHAT_ROLE: CHAT_ROLE_ASSISTANT, CHAT_CONTENT: chat_results}
-                        )
-
-                    except google.api_core.exceptions.PermissionDenied as e:
-                        st.error(
-                            f"Permission Denied: The authenticated user ({user_info.get(USER_INFO_EMAIL)}) may not have access to the BigQuery table or the billing project. Please check IAM permissions. Full error: {e}"
-                        )
-                    except Exception as e:
-                        st.error(f"An error occurred during the chat: {e}")
-
-    with tab2:
-        st.header("Data Agent Management")
-        if st.button("List and Show Agent Details"):
+# --- Render Assistant Message ---
+def render_assistant_message(content):
+    if content.get(RESULT_SUMMARY): st.markdown(content[RESULT_SUMMARY])
+    if content.get(RESULT_SQL):
+        with st.expander("Show Generated SQL"): st.code(content[RESULT_SQL], language="sql")
+    df = content.get(RESULT_DATAFRAME)
+    if df is not None and not df.empty:
+        st.subheader("Data Result")
+        st.dataframe(df)
+        if content.get(RESULT_HAS_CHART):
+            st.subheader("Generated Chart")
             try:
-                with st.spinner("Fetching data agents..."):
-                    req = geminidataanalytics.ListDataAgentsRequest(
-                        parent=f"projects/{billing_project}/locations/global"
+                x, y = df.columns[0], df.columns[1]
+                chart = (
+                    alt.Chart(df)
+                    .mark_bar()
+                    .encode(
+                        x=alt.X(f"{x}:N", sort="-y", title=x.title()),
+                        y=alt.Y(f"{y}:Q", title=y.title()),
+                        tooltip=list(df.columns)
                     )
-                    agents_list = list(data_agent_client.list_data_agents(request=req))
-
-                    if not agents_list:
-                        st.info("No data agents found.")
-                    else:
-                        for agent in agents_list:
-                            title = agent.display_name or agent.name.split("/")[-1]
-                            with st.expander(f"**{title}**"):
-                                st.write(f"**Full Resource Name:** `{agent.name}`")
-                                if agent.description:
-                                    st.write(f"**Description:** {agent.description}")
-                                st.write(
-                                    f"**Created:** {agent.create_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                                )
-                                st.write(
-                                    f"**Last Updated:** {agent.update_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                                )
-                                context = agent.data_analytics_agent.published_context
-                                if context.system_instruction:
-                                    st.write("**System Instruction:**")
-                                    st.info(context.system_instruction)
-                                if context.datasource_references.bq.table_references:
-                                    st.write("**Data Source:**")
-                                    for (
-                                        table
-                                    ) in (
-                                        context.datasource_references.bq.table_references
-                                    ):
-                                        st.code(
-                                            f"{table.project_id}.{table.dataset_id}.{table.table_id}",
-                                            language="sql",
-                                        )
+                    .properties(title=f"{y.title()} by {x.title()}")
+                )
+                st.altair_chart(chart, use_container_width=True)
             except Exception as e:
-                st.error(f"Failed to list data agents: {e}")
+                st.error(f"Could not generate chart: {e}")
 
-    with tab3:
-        st.header("Conversation History")
+# --- Sidebar and Configuration ---
+if user_info.get(USER_INFO_PICTURE):
+    st.sidebar.image(user_info[USER_INFO_PICTURE], width=100)
+st.sidebar.write(f"**Name:** {user_info.get(USER_INFO_NAME)}")
+st.sidebar.write(f"**Email:** {user_info.get(USER_INFO_EMAIL)}")
+if st.sidebar.button("Logout"): auth.logout()
+st.sidebar.divider()
+st.sidebar.markdown("Enter your GCP project and BigQuery source below.")
 
-        if SESSION_AGENTS_MAP not in st.session_state:
-            st.session_state[SESSION_AGENTS_MAP] = {}
-        if SESSION_CONVERSATIONS not in st.session_state:
-            st.session_state[SESSION_CONVERSATIONS] = []
 
-        if st.button("Load Conversations for Searching"):
-            with st.spinner(
-                "Fetching all agents and conversations... This may take a moment."
-            ):
-                try:
-                    agents_req = geminidataanalytics.ListDataAgentsRequest(
-                        parent=f"projects/{billing_project}/locations/global"
-                    )
-                    agents_list = list(
-                        data_agent_client.list_data_agents(request=agents_req)
-                    )
-                    st.session_state[SESSION_AGENTS_MAP] = {
-                        agent.name: agent for agent in agents_list
-                    }
+billing_project = st.sidebar.text_input("GCP Billing Project ID", get_default_project_id(), key=WIDGET_BILLING_PROJECT)
 
-                    convos_req = geminidataanalytics.ListConversationsRequest(
-                        parent=f"projects/{billing_project}/locations/global"
-                    )
-                    st.session_state[SESSION_CONVERSATIONS] = list(
-                        data_chat_client.list_conversations(request=convos_req)
-                    )
-                except Exception as e:
-                    st.error(f"Failed to load data: {e}")
+x = "bigquery-public-data.faa.us_airports"
+project, dataset, table = x.strip().split('.')
 
-        if st.session_state[SESSION_CONVERSATIONS]:
-            search_term = st.text_input(
-                "Search by Conversation ID, Agent Name, or Data Source (e.g., 'faa.us_airports')",
-                key=WIDGET_CONVO_SEARCH,
-            ).lower()
+with st.sidebar.expander("BigQuery Data Source", expanded=True):
+    bq_project_id = st.text_input("BQ Project ID", project, key=WIDGET_BQ_PROJECT_ID)
+    bq_dataset_id = st.text_input("BQ Dataset ID", dataset, key=WIDGET_BQ_DATASET_ID)
+    bq_table_id = st.text_input("BQ Table ID", table, key=WIDGET_BQ_TABLE_ID)
+    if (
+        st.session_state.get(SESSION_PREV_BQ_PROJECT_ID) != bq_project_id or
+        st.session_state.get(SESSION_PREV_BQ_DATASET_ID) != bq_dataset_id or
+        st.session_state.get(SESSION_PREV_BQ_TABLE_ID) != bq_table_id
+    ):
+        st.session_state.update({
+            SESSION_DATA_AGENT_ID: None,
+            SESSION_CONVERSATION_ID: None,
+            SESSION_MESSAGES: [],
+            SESSION_PREV_BQ_PROJECT_ID: bq_project_id,
+            SESSION_PREV_BQ_DATASET_ID: bq_dataset_id,
+            SESSION_PREV_BQ_TABLE_ID: bq_table_id
+        })
+        st.rerun()
+with st.sidebar.expander("System Instructions", expanded=True):
+    system_instruction = st.text_area("Agent Instructions", key=WIDGET_SYSTEM_INSTRUCTION)
 
-            filtered_convos = []
-            if search_term:
-                for convo in st.session_state[SESSION_CONVERSATIONS]:
-                    match = False
-                    if search_term in convo.name.lower():
-                        match = True
-                    if not match:
-                        for agent_name in convo.agents:
-                            agent = st.session_state[SESSION_AGENTS_MAP].get(agent_name)
-                            if agent:
-                                if search_term in agent.display_name.lower():
-                                    match = True
-                                    break
-                                context = agent.data_analytics_agent.published_context
-                                for (
-                                    table
-                                ) in context.datasource_references.bq.table_references:
-                                    source_path = f"{table.project_id}.{table.dataset_id}.{table.table_id}"
-                                    if search_term in source_path.lower():
-                                        match = True
-                                        break
-                            if match:
-                                break
-                    if match:
-                        filtered_convos.append(convo)
-                display_list = filtered_convos
+st.title("Conversational Analytics API")
+# --- UI Tabs ---
+tab1, tab2, tab3, tab4 = st.tabs(["Chat", "Data Agent Management", "Conversation History", "Update Data Agent"])
+
+with tab1:
+    st.header("Ask a question...")
+    if not all([billing_project, bq_project_id, bq_dataset_id, bq_table_id]):
+        st.warning("👋 Please complete all GCP and BigQuery details in the sidebar to activate the chat.")
+        st.stop() 
+
+    if not st.session_state.get("data_agent_id"):
+        agent_id = f"agent_{pd.Timestamp.now():%Y%m%d%H%M%S}"
+        with st.spinner(f"Creating agent '{agent_id}'..."):
+            bigq = geminidataanalytics.BigQueryTableReference(
+                project_id=bq_project_id, dataset_id=bq_dataset_id, table_id=bq_table_id
+            )
+            refs = geminidataanalytics.DatasourceReferences(bq={"table_references": [bigq]})
+            ctx = geminidataanalytics.Context(
+                system_instruction=system_instruction, datasource_references=refs
+            )
+            agent = geminidataanalytics.DataAgent(data_analytics_agent={"published_context": ctx})
+            req = geminidataanalytics.CreateDataAgentRequest(
+                parent=f"projects/{billing_project}/locations/global",
+                data_agent_id=agent_id,
+                data_agent=agent,
+            )
+            data_agent_client.create_data_agent(request=req)
+            st.session_state["data_agent_id"] = agent_id
+            st.success("Agent created")
+
+    # Define the agent path, which is needed for starting conversations and sending messages
+    agent_path = f"projects/{billing_project}/locations/global/dataAgents/{st.session_state['data_agent_id']}"
+
+    # Start conversation if needed
+    if not st.session_state.get("conversation_id"):
+        convo_id = f"conv_{pd.Timestamp.now():%Y%m%d%H%M%S}"
+        with st.spinner(f"Starting conversation '{convo_id}'..."):
+            convo = geminidataanalytics.Conversation(agents=[agent_path])
+            req = geminidataanalytics.CreateConversationRequest(
+                parent=f"projects/{billing_project}/locations/global",
+                conversation_id=convo_id,
+                conversation=convo,
+            )
+            data_chat_client.create_conversation(request=req)
+            st.session_state["conversation_id"] = convo_id
+            st.success("Conversation started")
+
+    # Render prior messages
+    st.session_state.setdefault("messages", [])
+    for msg in st.session_state["messages"]:
+        role = "user" if msg.get("role") == "user" else "assistant"
+        with st.chat_message(role):
+            if role == "user":
+                st.markdown(msg["content"])
             else:
-                display_list = st.session_state[SESSION_CONVERSATIONS]
+                render_assistant_message(msg["content"])
 
-            st.write(
-                f"Displaying **{len(display_list)}** of **{len(st.session_state[SESSION_CONVERSATIONS])}** conversations."
-            )
+    # Chat input
+    if prompt := st.chat_input("What would you like to know?"):
+        st.session_state["messages"].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                user_msg = geminidataanalytics.Message(user_message={"text": prompt})
+                convo_ref = geminidataanalytics.ConversationReference(
+                    conversation=f"projects/{billing_project}/locations/global/conversations/{st.session_state['conversation_id']}",
+                    data_agent_context={"data_agent": agent_path},
+                )
+                req = geminidataanalytics.ChatRequest(
+                    parent=f"projects/{billing_project}/locations/global",
+                    messages=[user_msg],
+                    conversation_reference=convo_ref,
+                )
+                stream = data_chat_client.chat(request=req)
+                res = process_chat_stream(stream)
+                render_assistant_message(res)
+                st.session_state["messages"].append({"role": "assistant", "content": res})
 
-            for conversation in display_list:
-                title = conversation.name.split("/")[-1]
-                with st.expander(f"**Conversation ID: {title}**"):
-                    st.write(
-                        f"**Last Used:** {conversation.last_used_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                    )
 
-                    for agent_name in conversation.agents:
-                        agent = st.session_state[SESSION_AGENTS_MAP].get(agent_name)
-                        if agent:
-                            st.markdown("---")
-                            st.write(f"**Agent Name:** {agent.display_name or 'N/A'}")
-                            context = agent.data_analytics_agent.published_context
-                            st.write("**Data Source(s):**")
-                            for (
-                                table
-                            ) in context.datasource_references.bq.table_references:
-                                st.code(
-                                    f"{table.project_id}.{table.dataset_id}.{table.table_id}",
-                                    language="text",
-                                )
 
-                    if st.button("View Messages", key=f"history_{conversation.name}"):
-                        with st.spinner("Loading message history..."):
-                            try:
-                                messages_req = geminidataanalytics.ListMessagesRequest(
-                                    parent=conversation.name
-                                )
-                                message_history = list(
-                                    data_chat_client.list_messages(request=messages_req)
-                                )
-
-                                if not message_history:
-                                    st.warning(
-                                        "No message history was found for this conversation."
-                                    )
-                                else:
-                                    for msg in reversed(message_history):
-                                        if (
-                                            hasattr(msg, "user_message")
-                                            and msg.user_message.text
-                                        ):
-                                            with st.chat_message(CHAT_ROLE_USER):
-                                                st.markdown(msg.user_message.text)
-                                        elif hasattr(msg, "system_message"):
-                                            with st.chat_message(CHAT_ROLE_ASSISTANT):
-                                                sys_msg = msg.system_message
-                                                if (
-                                                    hasattr(sys_msg, "text")
-                                                    and sys_msg.text.parts
-                                                ):
-                                                    st.markdown(
-                                                        "".join(sys_msg.text.parts)
-                                                    )
-                                                elif (
-                                                    hasattr(sys_msg, "data")
-                                                    and sys_msg.data.generated_sql
-                                                ):
-                                                    st.code(
-                                                        sys_msg.data.generated_sql,
-                                                        language="sql",
-                                                    )
-                                                    st.info(
-                                                        "Data tables are not rendered in history view."
-                                                    )
-                                                else:
-                                                    st.info(
-                                                        "Assistant response was a non-text element (e.g., chart)."
-                                                    )
-                                        else:
-                                            st.info(
-                                                "An unrecognized message format was found in the history."
-                                            )
-                                            try:
-                                                st.json(_convert_proto_to_dict(msg))
-                                            except Exception:
-                                                st.text(str(msg))
-                            except Exception as e:
-                                st.error(f"Could not load message history: {e}")
-    with tab4:
-        st.header("Update Data Agent")
-
-        billing_project = st.session_state.get("billing_project", "")
-        location = "global"
-        data_agent_id = st.text_input("Data Agent ID", "data_agent_1")
-        new_description = st.text_area(
-            "New Description", "This is my new updated description."
-        )
-        system_instruction = st.text_area("System Instruction (optional)", "")
-
-        # UI for BigQuery Table Reference
-        bq_project = st.text_input("BigQuery Project", "")
-        bq_dataset = st.text_input("BigQuery Dataset", "")
-        bq_table = st.text_input("BigQuery Table", "")
-
-        if st.button("Update Data Agent"):
+with tab2:
+    st.header("Data Agent Management")
+    if st.button("List and Show Agent Details"):
+        with st.spinner("Fetching agents..."):
             try:
-                # Build the BigQueryTableReference if details are provided
-                bigquery_table_reference = None
-                if bq_project and bq_dataset and bq_table:
-                    bigquery_table_reference = (
-                        geminidataanalytics.BigQueryTableReference(
-                            project_id=bq_project,
-                            dataset_id=bq_dataset,
-                            table_id=bq_table,
-                        )
-                    )
-                    datasource_references = geminidataanalytics.DatasourceReferences(
-                        bq=geminidataanalytics.BigQueryTableReferences(
-                            table_references=[bigquery_table_reference]
-                        )
-                    )
-                else:
-                    datasource_references = None  # or skip this arg if not needed
-
-                published_context = geminidataanalytics.Context(
-                    system_instruction=system_instruction,
-                    datasource_references=datasource_references,
-                    options=geminidataanalytics.ConversationOptions(
-                        analysis=geminidataanalytics.AnalysisOptions(
-                            python=geminidataanalytics.AnalysisOptions.Python(
-                                enabled=True
-                            )
-                        )
-                    ),
-                )
-
-                data_agent = geminidataanalytics.DataAgent(
-                    data_analytics_agent=geminidataanalytics.DataAnalyticsAgent(
-                        published_context=published_context
-                    ),
-                    name=data_agent_client.data_agent_path(
-                        billing_project, location, data_agent_id
-                    ),
-                    description=new_description,
-                )
-
-                update_mask = field_mask_pb2.FieldMask(
-                    paths=["description", "data_analytics_agent.published_context"]
-                )
-
-                request = geminidataanalytics.UpdateDataAgentRequest(
-                    data_agent=data_agent,
-                    update_mask=update_mask,
-                )
-
-                data_agent_client.update_data_agent(request=request)
-                st.success("✅ Data Agent Updated")
+                req = geminidataanalytics.ListDataAgentsRequest(parent=f"projects/{billing_project}/locations/global")
+                agents = list(data_agent_client.list_data_agents(request=req))
+                if not agents: st.info("No agents found.")
+                for ag in agents:
+                    with st.expander(ag.display_name or ag.name.split('/')[-1]):
+                        st.write(f"**Resource:** {ag.name}")
+                        if ag.description: st.write(f"**Description:** {ag.description}")
+                        st.write(f"**Created:** {ag.create_time}")
+                        st.write(f"**Updated:** {ag.update_time}")
             except Exception as e:
-                st.error(f"❌ Error updating Data Agent: {e}")
+                st.error(f"Fetch error: {e}")
+
+with tab3:
+    st.header("Conversation History")
+    if SESSION_AGENTS_MAP not in st.session_state:
+        st.session_state[SESSION_AGENTS_MAP] = {}
+    if SESSION_CONVERSATIONS not in st.session_state:
+        st.session_state[SESSION_CONVERSATIONS] = []
+    if st.button("Load Conversations"):
+        with st.spinner("Loading..."):
+            try:
+                agents = list(data_agent_client.list_data_agents(parent=f"projects/{billing_project}/locations/global"))
+                st.session_state[SESSION_AGENTS_MAP] = {a.name: a for a in agents}
+                st.session_state[SESSION_CONVERSATIONS] = list(data_chat_client.list_conversations(parent=f"projects/{billing_project}/locations/global"))
+            except Exception as e:
+                st.error(f"Load error: {e}")
+    for conv in st.session_state[SESSION_CONVERSATIONS]:
+        title = conv.name.split('/')[-1]
+        with st.expander(f"Conversation: {title}"):
+            st.write(f"Last Used: {conv.last_used_time}")
+            if st.button(f"View {title}", key=title):
+                with st.spinner("Fetching messages..."):
+                    try:
+                        msgs = list(data_chat_client.list_messages(parent=conv.name))
+                        for m in msgs:
+                            if getattr(m, 'user_message', None):
+                                with st.chat_message(CHAT_ROLE_USER): st.markdown(m.user_message.text)
+                            else:
+                                with st.chat_message(CHAT_ROLE_ASSISTANT): render_assistant_message({'content': m.system_message})
+                    except Exception as e:
+                        st.error(f"Message load error: {e}")
+
+with tab4:
+    st.header("Update Data Agent")
+    agent_id = st.text_input("Agent ID to update", key="update_agent_id")
+    desc = st.text_area("New description", key="update_desc")
+    if st.button("Update Agent"):
+        try:
+            path = data_agent_client.data_agent_path(billing_project, "global", agent_id)
+            agent = geminidataanalytics.DataAgent(name=path, description=desc)
+            mask = field_mask_pb2.FieldMask(paths=['description'])
+            data_agent_client.update_data_agent(agent=agent, update_mask=mask)
+            st.success("Updated")
+        except Exception as e:
+            st.error(f"Update error: {e}")
+
+print(f"DEBUG: App finished in {pd.Timestamp.now() - start_time}")

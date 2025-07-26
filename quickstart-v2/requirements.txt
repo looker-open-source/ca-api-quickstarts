@@ -13,3 +13,4 @@ vl-convert-python
 streamlit_cookies_manager
 google-cloud-logging
 google-cloud-secret-manager
+google_auth_oauthlib
