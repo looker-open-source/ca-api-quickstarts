@@ -62,6 +62,11 @@ st.markdown(
         padding: 0.75rem 1rem !important;
         box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
         z-index: 9999 !important;
+
+        /* --- NEW LINES START --- */
+        border: 2px solid #28a745 !important; /* A nice, visible green border */
+        border-radius: 8px !important;      /* Optional: for rounded corners */
+        /* --- NEW LINES END --- */
       }
 
       /* make sure your scrollable content doesn’t sit under the bar */
@@ -72,8 +77,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
 # --- Constants & Widget Keys (no changes) ---
 WIDGET_BILLING_PROJECT = "billing_project"
 WIDGET_BQ_PROJECT_ID = "bq_project_id"
@@ -228,7 +231,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["Chat", "Data Agent Management", "Conversation
 
 
 with tab1:
-    st.header("Ask a question...")
+    st.header("Ask a question below...")
     if not all([billing_project, bq_project_id, bq_dataset_id, bq_table_id]):
         st.warning("👋 Please complete all GCP and BigQuery details in the sidebar to activate the chat.")
         st.stop()
