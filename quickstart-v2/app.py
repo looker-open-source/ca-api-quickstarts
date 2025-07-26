@@ -1,3 +1,4 @@
+# --- START FILE: app.py ---
 import os
 import uuid
 import traceback
@@ -7,6 +8,7 @@ import proto
 import streamlit as st
 import google.auth
 from dotenv import load_dotenv
+from extra_streamlit_components import CookieManager
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf import field_mask_pb2
@@ -21,10 +23,6 @@ from error_handling import (
 # --- gRPC on macOS workaround ---
 os.environ['GRPC_POLL_STRATEGY'] = 'poll'
 
-# --- Debug Timestamp ---
-start_time = pd.Timestamp.now()
-print(f"DEBUG: App started at {start_time}")
-
 # --- Page Config ---
 st.set_page_config(
     page_title="Conversational Analytics API",
@@ -34,7 +32,6 @@ st.set_page_config(
 )
 load_dotenv()
 
-
 @st.cache_data
 def get_default_project_id():
     """Tries to discover the default GCP project ID from the environment."""
@@ -42,69 +39,49 @@ def get_default_project_id():
         _, project_id = google.auth.default()
         return project_id
     except google.auth.exceptions.DefaultCredentialsError:
-        return None # Return None if no project can be found
+        return None
     except Exception as e:
         handle_streamlit_exception(e, "get_default_project_id")
 
-# --- 1) Build or read stable session_id via URL query params ---
-params = st.query_params
-# --- 1) Build or read stable session_id via URL query params ---
-if "session_id" not in st.query_params:
-    st.query_params["session_id"] = str(uuid.uuid4())
-session_id = st.query_params["session_id"]
-
-# stash in session_state for easy access
-st.session_state["session_id"] = session_id
-
-# --- 2) Stub a minimal CookieManager API over session_state ---
-class SessionCookieManager:
-    def __init__(self, session_key="session_id"):
-        self._key = session_key
-    def get_all(self):
-        return {self._key: st.session_state.get(self._key)}
-    def get(self, name, default=None):
-        return st.session_state.get(name, default)
-    def set(self, name, value):
-        st.session_state[name] = value
-    def save(self):
-        # no‑op since session_state is in memory
-        pass
-
-
-# --- CSS Styling & Chat Input Pinning ---
 st.markdown(
     """
     <style>
-      :root { --sidebar-width: 18rem; --page-padding: 1rem; }
-      [data-testid="stChatInputContainer"], [data-testid="stChatInput"] {
+      :root {
+        --sidebar-width: 18rem;    /* adjust to your sidebar’s width */
+        --page-padding: 1rem;      /* adjust to your page’s horizontal padding */
+      }
+
+      /* Pin, center, and cap width at 75% of the viewport */
+      [data-testid="stChatInputContainer"],
+      [data-testid="stChatInput"] {
         position: fixed !important;
         bottom: 0 !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 75vw !important;
+        left: 50% !important;                           /* start at center */
+        transform: translateX(-50%) !important;         /* shift back by half width */
+        width: 50vw !important;                         /* 75% of the viewport width */
         max-width: calc(100vw - var(--sidebar-width) - var(--page-padding)*2) !important;
         background: #fff !important;
         padding: 0.75rem 1rem !important;
         box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
         z-index: 9999 !important;
       }
-      [data-testid="stVerticalBlock"] { padding-bottom: 6rem !important; }
-      .stButton>button { background-color: #4CAF50 !important; color: white !important; font-weight: bold !important; }
-      .stTextInput>div>div>input { background-color: #ffffff !important; }
-      h1, h2, h3 { color: #1a1a1a !important; }
+
+      /* make sure your scrollable content doesn’t sit under the bar */
+      [data-testid="stVerticalBlock"] {
+        padding-bottom: 6rem !important;
+      }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# --- Constants & Widget Keys ---
+
+# --- Constants & Widget Keys (no changes) ---
 WIDGET_BILLING_PROJECT = "billing_project"
 WIDGET_BQ_PROJECT_ID = "bq_project_id"
 WIDGET_BQ_DATASET_ID = "bq_dataset_id"
 WIDGET_BQ_TABLE_ID = "bq_table_id"
 WIDGET_SYSTEM_INSTRUCTION = "system_instruction"
-WIDGET_CONVO_SEARCH = "convo_search"
-
 SESSION_CREDS = "creds"
 SESSION_USER_INFO = "user_info"
 SESSION_MESSAGES = "messages"
@@ -115,7 +92,6 @@ SESSION_PREV_BQ_DATASET_ID = "prev_bq_dataset_id"
 SESSION_PREV_BQ_TABLE_ID = "prev_bq_table_id"
 SESSION_AGENTS_MAP = "all_agents_map"
 SESSION_CONVERSATIONS = "all_conversations"
-
 USER_INFO_EMAIL = "email"
 USER_INFO_NAME = "name"
 USER_INFO_PICTURE = "picture"
@@ -126,7 +102,7 @@ RESULT_DATAFRAME = "dataframe"
 RESULT_SUMMARY = "summary"
 RESULT_HAS_CHART = "has_chart"
 
-# --- Helper: Convert Protobuf to dict ---
+# --- Helper: Convert Protobuf to dict (no changes) ---
 def _convert_proto_to_dict(msg):
     if isinstance(msg, proto.marshal.collections.maps.MapComposite):
         return {k: _convert_proto_to_dict(v) for k, v in msg.items()}
@@ -136,71 +112,7 @@ def _convert_proto_to_dict(msg):
         return msg
     return MessageToDict(msg, preserving_proto_field_name=True)
 
-cookies = SessionCookieManager()
-
-# --- Authentication ---
-auth = Authenticator(cookies)
-auth.check_session()
-print(f"DEBUG: Session checked at {pd.Timestamp.now() - start_time}")
-
-# --- Login Gate ---
-if not st.session_state.get("user_email"):
-    auth.login_widget()
-    st.stop()
-if SESSION_USER_INFO not in st.session_state:
-    st.error("Login succeeded but user info missing; please re-authenticate.")
-    st.stop()
-user_info = st.session_state[SESSION_USER_INFO]
-log_user_login(user_info[USER_INFO_EMAIL])
-
-# --- Session ID Initialization ---
-if "session_id" not in st.session_state:
-    token_info = st.session_state.get("auth_token_info", {})
-    claims = token_info.get("id_token_claims", {})
-    sid = claims.get("email") or claims.get("sub") or st.session_state.get("user_email") or str(uuid.uuid4())
-    st.session_state["session_id"] = sid
-
-# --- Refresh Credentials ---
-credentials = st.session_state.get(SESSION_CREDS)
-if credentials and credentials.expired and credentials.refresh_token:
-    credentials.refresh(GoogleAuthRequest())
-
-# --- Initialize GCP Clients ---
-print(f"DEBUG: Initializing GCP clients at {pd.Timestamp.now() - start_time}")
-data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
-data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
-print(f"DEBUG: GCP clients initialized at {pd.Timestamp.now() - start_time}")
-
-# --- Default Session State ---
-st.session_state.setdefault(SESSION_MESSAGES, [])
-st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
-st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
-
-# --- Process Chat Stream ---
-@handle_errors
-def process_chat_stream(stream):
-    gen_sql = ""
-    summary = ""
-    df = pd.DataFrame()
-    has_chart = False
-    for resp in stream:
-        m = resp.system_message
-        if getattr(m, "data", None):
-            if m.data.generated_sql:
-                gen_sql = m.data.generated_sql
-            rows = getattr(m.data.result, "data", [])
-            if rows:
-                df = pd.DataFrame(
-                    [_convert_proto_to_dict(r) for r in rows],
-                    columns=[f.name for f in m.data.result.schema.fields]
-                )
-        if getattr(m, "text", None) and m.text.parts:
-            summary += "".join(m.text.parts)
-        if getattr(m, "chart", None):
-            has_chart = True
-    return {RESULT_SQL: gen_sql, RESULT_DATAFRAME: df, RESULT_SUMMARY: summary, RESULT_HAS_CHART: has_chart}
-
-# --- Render Assistant Message ---
+# --- Render Assistant Message (no changes) ---
 def render_assistant_message(content):
     if content.get(RESULT_SUMMARY): st.markdown(content[RESULT_SUMMARY])
     if content.get(RESULT_SQL):
@@ -214,28 +126,78 @@ def render_assistant_message(content):
             try:
                 x, y = df.columns[0], df.columns[1]
                 chart = (
-                    alt.Chart(df)
-                    .mark_bar()
-                    .encode(
+                    alt.Chart(df).mark_bar().encode(
                         x=alt.X(f"{x}:N", sort="-y", title=x.title()),
                         y=alt.Y(f"{y}:Q", title=y.title()),
                         tooltip=list(df.columns)
-                    )
-                    .properties(title=f"{y.title()} by {x.title()}")
+                    ).properties(title=f"{y.title()} by {x.title()}")
                 )
                 st.altair_chart(chart, use_container_width=True)
             except Exception as e:
                 st.error(f"Could not generate chart: {e}")
+
+# --- Process Chat Stream (no changes) ---
+@handle_errors
+def process_chat_stream(stream):
+    gen_sql, summary, df, has_chart = "", "", pd.DataFrame(), False
+    for resp in stream:
+        m = resp.system_message
+        if getattr(m, "data", None):
+            if m.data.generated_sql: gen_sql = m.data.generated_sql
+            rows = getattr(m.data.result, "data", [])
+            if rows:
+                df = pd.DataFrame(
+                    [_convert_proto_to_dict(r) for r in rows],
+                    columns=[f.name for f in m.data.result.schema.fields]
+                )
+        if getattr(m, "text", None) and m.text.parts: summary += "".join(m.text.parts)
+        if getattr(m, "chart", None): has_chart = True
+    return {RESULT_SQL: gen_sql, RESULT_DATAFRAME: df, RESULT_SUMMARY: summary, RESULT_HAS_CHART: has_chart}
+
+
+# --- Authentication Flow ---
+cookie_manager = CookieManager(key="user_session_cookie")
+auth = Authenticator(cookie_manager)
+auth.check_session()
+
+# --- FIX: This is the authentication gate. ---
+# If the user is not logged in, show the login widget and stop the script.
+if not st.session_state.get("user_email"):
+    st.info("Please log in to continue.")
+    auth.login_widget()
+    st.stop()
+
+# --- FIX: The rest of the app is now un-indented and runs only after successful login. ---
+
+# Sanity check for user info after login
+if SESSION_USER_INFO not in st.session_state:
+    st.error("Login succeeded but user info missing; please re-authenticate.")
+    st.stop()
+user_info = st.session_state[SESSION_USER_INFO]
+
+# --- Refresh Credentials ---
+credentials = st.session_state.get(SESSION_CREDS)
+if credentials and credentials.expired and credentials.refresh_token:
+    credentials.refresh(GoogleAuthRequest())
+
+# --- Initialize GCP Clients ---
+data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
+data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
+
+# --- Default Session State ---
+st.session_state.setdefault(SESSION_MESSAGES, [])
+st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
+st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
 
 # --- Sidebar and Configuration ---
 if user_info.get(USER_INFO_PICTURE):
     st.sidebar.image(user_info[USER_INFO_PICTURE], width=100)
 st.sidebar.write(f"**Name:** {user_info.get(USER_INFO_NAME)}")
 st.sidebar.write(f"**Email:** {user_info.get(USER_INFO_EMAIL)}")
-if st.sidebar.button("Logout"): auth.logout()
+if st.sidebar.button("Logout"):
+    auth.logout() # Logout function now correctly deletes the cookie
 st.sidebar.divider()
 st.sidebar.markdown("Enter your GCP project and BigQuery source below.")
-
 
 billing_project = st.sidebar.text_input("GCP Billing Project ID", get_default_project_id(), key=WIDGET_BILLING_PROJECT)
 
@@ -252,26 +214,26 @@ with st.sidebar.expander("BigQuery Data Source", expanded=True):
         st.session_state.get(SESSION_PREV_BQ_TABLE_ID) != bq_table_id
     ):
         st.session_state.update({
-            SESSION_DATA_AGENT_ID: None,
-            SESSION_CONVERSATION_ID: None,
-            SESSION_MESSAGES: [],
-            SESSION_PREV_BQ_PROJECT_ID: bq_project_id,
-            SESSION_PREV_BQ_DATASET_ID: bq_dataset_id,
-            SESSION_PREV_BQ_TABLE_ID: bq_table_id
+            SESSION_DATA_AGENT_ID: None, SESSION_CONVERSATION_ID: None,
+            SESSION_MESSAGES: [], SESSION_PREV_BQ_PROJECT_ID: bq_project_id,
+            SESSION_PREV_BQ_DATASET_ID: bq_dataset_id, SESSION_PREV_BQ_TABLE_ID: bq_table_id
         })
         st.rerun()
+
 with st.sidebar.expander("System Instructions", expanded=True):
     system_instruction = st.text_area("Agent Instructions", key=WIDGET_SYSTEM_INSTRUCTION)
 
-st.title("Conversational Analytics API")
+st.title("🗣️ Conversational Analytics API")
+
 # --- UI Tabs ---
 tab1, tab2, tab3, tab4 = st.tabs(["Chat", "Data Agent Management", "Conversation History", "Update Data Agent"])
+
 
 with tab1:
     st.header("Ask a question...")
     if not all([billing_project, bq_project_id, bq_dataset_id, bq_table_id]):
         st.warning("👋 Please complete all GCP and BigQuery details in the sidebar to activate the chat.")
-        st.stop() 
+        st.stop()
 
     if not st.session_state.get("data_agent_id"):
         agent_id = f"agent_{pd.Timestamp.now():%Y%m%d%H%M%S}"
@@ -387,7 +349,7 @@ with tab3:
                             if getattr(m, 'user_message', None):
                                 with st.chat_message(CHAT_ROLE_USER): st.markdown(m.user_message.text)
                             else:
-                                with st.chat_message(CHAT_ROLE_ASSISTANT): render_assistant_message({'content': m.system_message})
+                                with st.chat_message(CHAT_ROLE_ASSISTANT): render_assistant_message(process_chat_stream([m]))
                     except Exception as e:
                         st.error(f"Message load error: {e}")
 
@@ -404,5 +366,4 @@ with tab4:
             st.success("Updated")
         except Exception as e:
             st.error(f"Update error: {e}")
-
-print(f"DEBUG: App finished in {pd.Timestamp.now() - start_time}")
+# --- END FILE: app.py ---
