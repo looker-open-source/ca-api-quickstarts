@@ -1,4 +1,3 @@
-# --- START FILE: app.py ---
 import os
 import uuid
 import traceback
@@ -20,7 +19,6 @@ from error_handling import (
     handle_errors, handle_streamlit_exception
 )
 
-# --- gRPC on macOS workaround ---
 os.environ['GRPC_POLL_STRATEGY'] = 'poll'
 
 # --- Page Config ---
@@ -223,7 +221,7 @@ with st.sidebar.expander("BigQuery Data Source", expanded=True):
 with st.sidebar.expander("System Instructions", expanded=True):
     system_instruction = st.text_area("Agent Instructions", key=WIDGET_SYSTEM_INSTRUCTION)
 
-st.title("🗣️ Conversational Analytics API")
+st.title("Conversational Analytics API")
 
 # --- UI Tabs ---
 tab1, tab2, tab3, tab4 = st.tabs(["Chat", "Data Agent Management", "Conversation History", "Update Data Agent"])
@@ -253,12 +251,12 @@ with tab1:
             )
             data_agent_client.create_data_agent(request=req)
             st.session_state["data_agent_id"] = agent_id
-            st.success("Agent created")
+            st.toast("Agent created")
 
-    # Define the agent path, which is needed for starting conversations and sending messages
+
     agent_path = f"projects/{billing_project}/locations/global/dataAgents/{st.session_state['data_agent_id']}"
 
-    # Start conversation if needed
+
     if not st.session_state.get("conversation_id"):
         convo_id = f"conv_{pd.Timestamp.now():%Y%m%d%H%M%S}"
         with st.spinner(f"Starting conversation '{convo_id}'..."):
@@ -270,9 +268,9 @@ with tab1:
             )
             data_chat_client.create_conversation(request=req)
             st.session_state["conversation_id"] = convo_id
-            st.success("Conversation started")
+            st.toast("Conversation started")
 
-    # Render prior messages
+
     st.session_state.setdefault("messages", [])
     for msg in st.session_state["messages"]:
         role = "user" if msg.get("role") == "user" else "assistant"
@@ -282,7 +280,7 @@ with tab1:
             else:
                 render_assistant_message(msg["content"])
 
-    # Chat input
+
     if prompt := st.chat_input("What would you like to know?"):
         st.session_state["messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -366,4 +364,3 @@ with tab4:
             st.success("Updated")
         except Exception as e:
             st.error(f"Update error: {e}")
-# --- END FILE: app.py ---
