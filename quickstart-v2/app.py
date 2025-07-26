@@ -1,3 +1,5 @@
+# --- START FILE: app.py ---
+
 import os
 import uuid
 import traceback
@@ -7,13 +9,12 @@ import proto
 import streamlit as st
 import google.auth
 from dotenv import load_dotenv
-from extra_streamlit_components import CookieManager
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf import field_mask_pb2
 from google.protobuf.json_format import MessageToDict
-from auth import Authenticator
 from app_secrets import get_secret
+from auth import Authenticator
 from error_handling import (
     log_error, log_user_login, log_user_logout,
     handle_errors, handle_streamlit_exception
@@ -21,18 +22,12 @@ from error_handling import (
 
 os.environ['GRPC_POLL_STRATEGY'] = 'poll'
 
-# --- Page Config ---
-st.set_page_config(
-    page_title="Conversational Analytics API",
-    page_icon="🗣️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Conversational Analytics API", page_icon="🗣️", layout="wide", initial_sidebar_state="expanded")
 load_dotenv()
 
 @st.cache_data
 def get_default_project_id():
-    """Tries to discover the default GCP project ID from the environment."""
     try:
         _, project_id = google.auth.default()
         return project_id
@@ -41,42 +36,58 @@ def get_default_project_id():
     except Exception as e:
         handle_streamlit_exception(e, "get_default_project_id")
 
-st.markdown(
-    """
-    <style>
-      :root {
-        --sidebar-width: 18rem;    /* adjust to your sidebar’s width */
-        --page-padding: 1rem;      /* adjust to your page’s horizontal padding */
-      }
+st.markdown("""
+<style>
+  :root {
+    --sidebar-width: 18rem;
+    --page-padding: 1rem;
+  }
+  [data-testid="stChatInputContainer"], [data-testid="stChatInput"] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 50vw !important;
+    max-width: calc(100vw - var(--sidebar-width) - var(--page-padding)*2) !important;
+    background: #fff !important;
+    padding: 0.75rem 1rem !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
+    z-index: 9999 !important;
+    border: 2px solid #28a745 !important;
+    border-radius: 8px !important;
+  }
+  [data-testid="stVerticalBlock"] {
+    padding-bottom: 6rem !important;
+  }
+</style>
+""", unsafe_allow_html=True)
 
-      /* Pin, center, and cap width at 75% of the viewport */
-      [data-testid="stChatInputContainer"],
-      [data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 50% !important;                           /* start at center */
-        transform: translateX(-50%) !important;         /* shift back by half width */
-        width: 50vw !important;                         /* 75% of the viewport width */
-        max-width: calc(100vw - var(--sidebar-width) - var(--page-padding)*2) !important;
-        background: #fff !important;
-        padding: 0.75rem 1rem !important;
-        box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
-        z-index: 9999 !important;
+# --- AUTH CODE START (from your snippet) ---
 
-        /* --- NEW LINES START --- */
-        border: 2px solid #28a745 !important; /* A nice, visible green border */
-        border-radius: 8px !important;      /* Optional: for rounded corners */
-        /* --- NEW LINES END --- */
-      }
+from streamlit_cookies_manager import EncryptedCookieManager
 
-      /* make sure your scrollable content doesn’t sit under the bar */
-      [data-testid="stVerticalBlock"] {
-        padding-bottom: 6rem !important;
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
+# Cookie Manager setup using secret manager for encryption key
+cookies = EncryptedCookieManager(
+    password=get_secret(
+        os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT"),
+        "EncryptedCookieManager-secret",
+    )
 )
+if not cookies.ready():
+    st.info("Cookies not ready...pausing....")
+    st.stop()
+
+# Authenticator using cookies
+auth = Authenticator(cookies)
+auth.check_session()
+
+# Auth Gate
+if not st.session_state.get("user_email"):
+    auth.login_widget()
+    st.stop()
+
+# --- END AUTH CODE ---
+
 # --- Constants & Widget Keys (no changes) ---
 WIDGET_BILLING_PROJECT = "billing_project"
 WIDGET_BQ_PROJECT_ID = "bq_project_id"
@@ -103,7 +114,6 @@ RESULT_DATAFRAME = "dataframe"
 RESULT_SUMMARY = "summary"
 RESULT_HAS_CHART = "has_chart"
 
-# --- Helper: Convert Protobuf to dict (no changes) ---
 def _convert_proto_to_dict(msg):
     if isinstance(msg, proto.marshal.collections.maps.MapComposite):
         return {k: _convert_proto_to_dict(v) for k, v in msg.items()}
@@ -113,7 +123,6 @@ def _convert_proto_to_dict(msg):
         return msg
     return MessageToDict(msg, preserving_proto_field_name=True)
 
-# --- Render Assistant Message (no changes) ---
 def render_assistant_message(content):
     if content.get(RESULT_SUMMARY): st.markdown(content[RESULT_SUMMARY])
     if content.get(RESULT_SQL):
@@ -137,7 +146,6 @@ def render_assistant_message(content):
             except Exception as e:
                 st.error(f"Could not generate chart: {e}")
 
-# --- Process Chat Stream (no changes) ---
 @handle_errors
 def process_chat_stream(stream):
     gen_sql, summary, df, has_chart = "", "", pd.DataFrame(), False
@@ -155,53 +163,40 @@ def process_chat_stream(stream):
         if getattr(m, "chart", None): has_chart = True
     return {RESULT_SQL: gen_sql, RESULT_DATAFRAME: df, RESULT_SUMMARY: summary, RESULT_HAS_CHART: has_chart}
 
+# --- Now, the rest of your Streamlit app runs only for logged-in users ---
 
-# --- Authentication Flow ---
-cookie_manager = CookieManager(key="user_session_cookie")
-auth = Authenticator(cookie_manager)
-auth.check_session()
-
-# --- FIX: This is the authentication gate. ---
-# If the user is not logged in, show the login widget and stop the script.
-if not st.session_state.get("user_email"):
-    st.info("Please log in to continue.")
-    auth.login_widget()
+if "auth_token_info" not in st.session_state or st.session_state["auth_token_info"] is None:
+    st.error("Login succeeded but token info missing; please re-authenticate.")
     st.stop()
+token_info = st.session_state["auth_token_info"]
+user_info = {
+    "email": token_info.get("email"),
+    "name": token_info.get("id_token_claims", {}).get("name", token_info.get("email")),
+    "picture": token_info.get("id_token_claims", {}).get("picture"),
+}
 
-# --- FIX: The rest of the app is now un-indented and runs only after successful login. ---
-
-# Sanity check for user info after login
-if SESSION_USER_INFO not in st.session_state:
-    st.error("Login succeeded but user info missing; please re-authenticate.")
-    st.stop()
-user_info = st.session_state[SESSION_USER_INFO]
-
-# --- Refresh Credentials ---
 credentials = st.session_state.get(SESSION_CREDS)
 if credentials and credentials.expired and credentials.refresh_token:
     credentials.refresh(GoogleAuthRequest())
 
-# --- Initialize GCP Clients ---
 data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
 data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
 
-# --- Default Session State ---
 st.session_state.setdefault(SESSION_MESSAGES, [])
 st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
 st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
 
-# --- Sidebar and Configuration ---
+# Sidebar/User info
 if user_info.get(USER_INFO_PICTURE):
     st.sidebar.image(user_info[USER_INFO_PICTURE], width=100)
 st.sidebar.write(f"**Name:** {user_info.get(USER_INFO_NAME)}")
 st.sidebar.write(f"**Email:** {user_info.get(USER_INFO_EMAIL)}")
 if st.sidebar.button("Logout"):
-    auth.logout() # Logout function now correctly deletes the cookie
+    auth.logout_widget()  # new logout from your minimal code!
 st.sidebar.divider()
 st.sidebar.markdown("Enter your GCP project and BigQuery source below.")
 
 billing_project = st.sidebar.text_input("GCP Billing Project ID", get_default_project_id(), key=WIDGET_BILLING_PROJECT)
-
 x = "bigquery-public-data.faa.us_airports"
 project, dataset, table = x.strip().split('.')
 
@@ -226,9 +221,7 @@ with st.sidebar.expander("System Instructions", expanded=True):
 
 st.title("Conversational Analytics API")
 
-# --- UI Tabs ---
 tab1, tab2, tab3, tab4 = st.tabs(["Chat", "Data Agent Management", "Conversation History", "Update Data Agent"])
-
 
 with tab1:
     st.header("Ask a question below...")
@@ -256,9 +249,7 @@ with tab1:
             st.session_state["data_agent_id"] = agent_id
             st.toast("Agent created")
 
-
     agent_path = f"projects/{billing_project}/locations/global/dataAgents/{st.session_state['data_agent_id']}"
-
 
     if not st.session_state.get("conversation_id"):
         convo_id = f"conv_{pd.Timestamp.now():%Y%m%d%H%M%S}"
@@ -273,7 +264,6 @@ with tab1:
             st.session_state["conversation_id"] = convo_id
             st.toast("Conversation started")
 
-
     st.session_state.setdefault("messages", [])
     for msg in st.session_state["messages"]:
         role = "user" if msg.get("role") == "user" else "assistant"
@@ -282,7 +272,6 @@ with tab1:
                 st.markdown(msg["content"])
             else:
                 render_assistant_message(msg["content"])
-
 
     if prompt := st.chat_input("What would you like to know?"):
         st.session_state["messages"].append({"role": "user", "content": prompt})
@@ -304,8 +293,6 @@ with tab1:
                 res = process_chat_stream(stream)
                 render_assistant_message(res)
                 st.session_state["messages"].append({"role": "assistant", "content": res})
-
-
 
 with tab2:
     st.header("Data Agent Management")
@@ -367,3 +354,5 @@ with tab4:
             st.success("Updated")
         except Exception as e:
             st.error(f"Update error: {e}")
+
+# --- END FILE: app.py ---
