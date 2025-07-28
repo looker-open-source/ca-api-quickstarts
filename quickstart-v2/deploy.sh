@@ -4,7 +4,7 @@ PROJECT_ID="bp-steveswalker-solutions-303"
 REGION="us-central1"
 REPOSITORY="my-repo"
 IMAGE_NAME="gilligan"
-SERVICE_NAME="ca-api-quickstart-v2"
+SERVICE_NAME="ca-api-quickstart-v2-02"
 
 SERVICE_ACCOUNT_EMAIL="da-tco-app@bp-steveswalker-solutions-303.iam.gserviceaccount.com" 
 
@@ -27,5 +27,8 @@ gcloud alpha run deploy "$SERVICE_NAME" \
   --service-account "$SERVICE_ACCOUNT_EMAIL"
 
 echo "✅ Deployment complete!"
+
+
+
 
 

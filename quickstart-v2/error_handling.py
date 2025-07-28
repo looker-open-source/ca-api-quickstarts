@@ -23,6 +23,7 @@ def handle_errors(func):
     Decorator to catch exceptions, log them, and halt Streamlit immediately.
     For SessionAuthenticationError, logs out the user and clears session/cookies.
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -36,6 +37,7 @@ def handle_errors(func):
                 st.session_state.get("user_email", None),
             )
             st.stop()
+
     return wrapper
 
 
@@ -72,7 +74,6 @@ def log_user_logout(user_email):
         },
         severity="INFO",
     )
-
 
 
 def log_error(error_info, user_id):

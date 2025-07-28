@@ -12,8 +12,13 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 
 from app_secrets import get_secret
-from error_handling import (handle_errors, handle_streamlit_exception,
-                            log_error, log_user_login, log_user_logout)
+from error_handling import (
+    handle_errors,
+    handle_streamlit_exception,
+    log_error,
+    log_user_login,
+    log_user_logout,
+)
 
 load_dotenv()
 
@@ -43,6 +48,7 @@ except Exception as e:
     st.exception(e)
     handle_streamlit_exception(e, "app.py | imports")
     st.stop()
+
 
 class Authenticator:
     """
@@ -219,4 +225,6 @@ class Authenticator:
             claims = token_info.get("id_token_claims", {})
             return claims.get("name", st.session_state.get("user_email"))
         return None
+
+
 # --- END FILE: auth.py ---

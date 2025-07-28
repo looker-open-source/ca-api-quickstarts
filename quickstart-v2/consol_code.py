@@ -5,20 +5,18 @@ import sys
 
 DEFAULT_OUTPUT_FILENAME = "output.txt"
 DEFAULT_INCLUDE_PATTERNS = {
-    '/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/.env',
-    '/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app_secrets.py',
-    '/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app.py',
-    '/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/auth.py',
-    '/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/error_handling.py',
-    }
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app_secrets.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/auth.py",
+}
 
 ALWAYS_EXCLUDE_DIRS = {
-    '__pycache__',
-    '.venv',
-    'venv',
-    'env',
-    '.git',
-    '.vscode',
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    ".git",
+    ".vscode",
 }
 # ---------------------
 
@@ -47,10 +45,11 @@ def consolidate_code(root_dir, include_patterns=DEFAULT_INCLUDE_PATTERNS):
         return "", []
 
     print(f"Scanning directory: {root_path}", file=sys.stderr)
+    print(f"Including patterns: {', '.join(sorted(include_patterns))}", file=sys.stderr)
     print(
-        f"Including patterns: {', '.join(sorted(include_patterns))}", file=sys.stderr)
-    print(
-        f"Always excluding subdirs named: {', '.join(sorted(ALWAYS_EXCLUDE_DIRS))}", file=sys.stderr)
+        f"Always excluding subdirs named: {', '.join(sorted(ALWAYS_EXCLUDE_DIRS))}",
+        file=sys.stderr,
+    )
     print("-" * 30, file=sys.stderr)
 
     for pattern in sorted(list(include_patterns)):  # Sort for consistent order
@@ -58,21 +57,24 @@ def consolidate_code(root_dir, include_patterns=DEFAULT_INCLUDE_PATTERNS):
 
         if not item_path.exists():
             print(
-                f"Warning: Include pattern path not found: {item_path}", file=sys.stderr)
+                f"Warning: Include pattern path not found: {item_path}", file=sys.stderr
+            )
             continue
 
         files_to_process = []
         if item_path.is_file():
             # If the pattern is a specific file
-            if item_path.suffix == '.py':
+            if item_path.suffix == ".py":
                 files_to_process.append(item_path)
             else:
                 print(
-                    f"Warning: Included file is not a .py file, skipping: {item_path.relative_to(root_path)}", file=sys.stderr)
+                    f"Warning: Included file is not a .py file, skipping: {item_path.relative_to(root_path)}",
+                    file=sys.stderr,
+                )
         elif item_path.is_dir():
             # If the pattern is a directory (ends with / handled by pathlib)
             # Recursively find all .py files within this directory
-            for py_file in item_path.rglob('*.py'):
+            for py_file in item_path.rglob("*.py"):
                 # Check if the file is within an always excluded directory
                 is_in_excluded_dir = False
                 # Check parts relative to the *included* directory base first
@@ -98,24 +100,32 @@ def consolidate_code(root_dir, include_patterns=DEFAULT_INCLUDE_PATTERNS):
                 print(f"Adding file: {relative_path}", file=sys.stderr)
 
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         content = f.read()
 
                     consolidated_content.append(
-                        f"# --- START FILE: {relative_path} ---")
+                        f"# --- START FILE: {relative_path} ---"
+                    )
                     consolidated_content.append(content)
                     consolidated_content.append(
-                        f"# --- END FILE: {relative_path} ---\n\n")
+                        f"# --- END FILE: {relative_path} ---\n\n"
+                    )
 
                 except UnicodeDecodeError:
                     print(
-                        f"Warning: Could not decode file {relative_path} as UTF-8. Skipping.", file=sys.stderr)
+                        f"Warning: Could not decode file {relative_path} as UTF-8. Skipping.",
+                        file=sys.stderr,
+                    )
                 except IOError as e:
                     print(
-                        f"Warning: Could not read file {relative_path}: {e}", file=sys.stderr)
+                        f"Warning: Could not read file {relative_path}: {e}",
+                        file=sys.stderr,
+                    )
                 except Exception as e:
                     print(
-                        f"Warning: An unexpected error occurred processing {relative_path}: {e}", file=sys.stderr)
+                        f"Warning: An unexpected error occurred processing {relative_path}: {e}",
+                        file=sys.stderr,
+                    )
 
     print("-" * 30, file=sys.stderr)
 
@@ -126,25 +136,26 @@ def consolidate_code(root_dir, include_patterns=DEFAULT_INCLUDE_PATTERNS):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Consolidate Python code from specified files/directories into a single block.",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "root_dir",
-        nargs='?',
-        default='.',
-        help="The root directory of your project (default: current directory)."
+        nargs="?",
+        default=".",
+        help="The root directory of your project (default: current directory).",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         metavar="FILE",
         # Default value is now handled in the logic below, not in add_argument
-        help=f"Optional: Write the consolidated code to the specified file (default: {DEFAULT_OUTPUT_FILENAME})."
+        help=f"Optional: Write the consolidated code to the specified file (default: {DEFAULT_OUTPUT_FILENAME}).",
     )
     parser.add_argument(
         "--include",
         action="append",
         metavar="PATH",
-        help=f"Specify a file or directory (end with '/') to include. Use multiple times. Overrides default includes. If not used, defaults are: {', '.join(sorted(DEFAULT_INCLUDE_PATTERNS))}"
+        help=f"Specify a file or directory (end with '/') to include. Use multiple times. Overrides default includes. If not used, defaults are: {', '.join(sorted(DEFAULT_INCLUDE_PATTERNS))}",
     )
 
     args = parser.parse_args()
@@ -158,8 +169,7 @@ if __name__ == "__main__":
         print(f"Using default include patterns.", file=sys.stderr)
 
     combined_code, files_processed = consolidate_code(
-        args.root_dir,
-        include_patterns=current_include_patterns
+        args.root_dir, include_patterns=current_include_patterns
     )
 
     if files_processed:
@@ -171,24 +181,32 @@ if __name__ == "__main__":
             output_path = pathlib.Path(target_output_file)
             # Ensure parent directory exists before writing
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f_out:
+            with open(output_path, "w", encoding="utf-8") as f_out:
                 f_out.write(combined_code)
             # Always report the file it was written to
             print(
-                f"Consolidated code for {len(files_processed)} files written to: {output_path}", file=sys.stderr)
+                f"Consolidated code for {len(files_processed)} files written to: {output_path}",
+                file=sys.stderr,
+            )
         except IOError as e:
             print(
-                f"Error: Could not write to output file {target_output_file}: {e}", file=sys.stderr)
+                f"Error: Could not write to output file {target_output_file}: {e}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         except Exception as e:
             print(
-                f"Error: An unexpected error occurred writing to file {target_output_file}: {e}", file=sys.stderr)
+                f"Error: An unexpected error occurred writing to file {target_output_file}: {e}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         # --- End of modified output logic ---
 
         # Print summary information to stderr
         print(
-            f"Successfully consolidated {len(files_processed)} Python files:", file=sys.stderr)
+            f"Successfully consolidated {len(files_processed)} Python files:",
+            file=sys.stderr,
+        )
         for f in sorted(files_processed):
             print(f"  - {f}", file=sys.stderr)
 
