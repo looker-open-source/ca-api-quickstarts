@@ -1,4 +1,4 @@
-#app.py
+#app.py Tues 7/29/2025 
 from streamlit_cookies_manager import EncryptedCookieManager
 import os
 import uuid
@@ -368,7 +368,12 @@ with st.sidebar.expander("System Instructions", expanded=True):
         key=WIDGET_SYSTEM_INSTRUCTION,
         height=200,
     )
-
+st.sidebar.divider()
+if st.sidebar.button("Clear Chat"):
+    # reset chat history and refresh
+    st.session_state[SESSION_MESSAGES] = []
+    st.rerun()
+    
 st.title("Conversational Analytics API")
 
 # --- TABS ---
