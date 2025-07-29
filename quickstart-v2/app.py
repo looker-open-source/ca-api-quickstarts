@@ -1,3 +1,4 @@
+#app.py
 from streamlit_cookies_manager import EncryptedCookieManager
 import os
 import uuid
@@ -7,11 +8,14 @@ import pandas as pd
 import proto
 import streamlit as st
 import google.auth
+from datetime import datetime
 from dotenv import load_dotenv
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf import field_mask_pb2
 from google.protobuf.json_format import MessageToDict
+import json as json_lib
+
 from app_secrets import get_secret
 from auth import Authenticator
 from error_handling import (
@@ -21,8 +25,6 @@ from error_handling import (
     handle_errors,
     handle_streamlit_exception,
 )
-import json as json_lib
-
 
 os.environ["GRPC_POLL_STRATEGY"] = "poll"
 
@@ -34,6 +36,53 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 load_dotenv()
+
+# --- AUTHENTICATION SETUP ---
+cookies = EncryptedCookieManager(
+    password=get_secret(
+        os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT"),
+        "EncryptedCookieManager-secret",
+    )
+)
+if not cookies.ready():
+    st.info("Caching data, one sec...")
+    st.stop()
+
+auth = Authenticator(cookies)
+auth.check_session()
+
+if not st.session_state.get("user_email"):
+    auth.login_widget()
+    st.stop()
+
+if (
+    "auth_token_info" not in st.session_state
+    or st.session_state["auth_token_info"] is None
+):
+    st.error("Login succeeded but token info missing; please re-authenticate.")
+    st.stop()
+
+# Reconstruct credentials (including stored expiry)
+credentials = st.session_state.get("creds")
+
+# ALWAYS refresh if you have a refresh token
+if credentials and credentials.refresh_token:
+    try:
+        credentials.refresh(GoogleAuthRequest())
+        # Persist refreshed token/expiry
+        st.session_state["auth_token_info"]["access_token"] = credentials.token
+        st.session_state["auth_token_info"]["expiry"] = credentials.expiry.isoformat()
+        auth._save_token_to_firestore(
+            st.session_state["user_email"],
+            st.session_state["auth_token_info"],
+        )
+    except Exception as e:
+        st.error(f"Could not refresh credentials: {e}")
+        st.stop()
+
+# Build API clients
+data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
+data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
 
 # --- DATA FOR SUGGESTED QUESTIONS ---
 SUGGESTED_QUESTIONS = {
@@ -51,9 +100,9 @@ SUGGESTED_QUESTIONS = {
 
 # --- HELPER FUNCTIONS ---
 
+
 @st.cache_data
 def get_default_project_id():
-    """Tries to get the default GCP Project ID from the environment."""
     try:
         _, project_id = google.auth.default()
         return project_id
@@ -62,8 +111,8 @@ def get_default_project_id():
     except Exception as e:
         handle_streamlit_exception(e, "get_default_project_id")
 
+
 def _convert_proto_to_dict(msg):
-    """Recursively converts a proto message to a dictionary."""
     if isinstance(msg, proto.marshal.collections.maps.MapComposite):
         return {k: _convert_proto_to_dict(v) for k, v in msg.items()}
     if isinstance(msg, proto.marshal.collections.RepeatedComposite):
@@ -72,8 +121,8 @@ def _convert_proto_to_dict(msg):
         return msg
     return MessageToDict(msg, preserving_proto_field_name=True)
 
+
 def _convert_history_message_to_dict(msg):
-    """Converts a single historical message proto into a dict for rendering."""
     m = msg.system_message
     gen_sql, summary = "", ""
     df = pd.DataFrame()
@@ -91,25 +140,20 @@ def _convert_history_message_to_dict(msg):
             )
     if getattr(m, "chart", None):
         has_chart = True
-    return {
-        "sql": gen_sql, "dataframe": df,
-        "summary": summary, "has_chart": has_chart,
-    }
+    return {"sql": gen_sql, "dataframe": df, "summary": summary, "has_chart": has_chart}
+
 
 def handle_suggestion_click(question):
-    """Callback function to handle suggested question button clicks."""
     st.session_state.prompt_from_suggestion = question
 
-# --- STREAMING RESPONSE HANDLERS ---
 
 def handle_text_response(resp):
-    """Renders streaming text directly to the page."""
     text = "".join(resp.parts)
     st.markdown(text, unsafe_allow_html=True)
     return text
 
+
 def handle_data_response(resp):
-    """Renders SQL and returns the resulting DataFrame."""
     gen_sql, df = "", pd.DataFrame()
     if resp.generated_sql:
         gen_sql = resp.generated_sql
@@ -123,8 +167,8 @@ def handle_data_response(resp):
         )
     return gen_sql, df
 
+
 def show_message(msg):
-    """Dispatcher function to call the correct handler for a streamed message."""
     m = msg.system_message
     summary_chunk, sql_chunk, df_chunk = "", "", pd.DataFrame()
     if "text" in m:
@@ -133,8 +177,8 @@ def show_message(msg):
         sql_chunk, df_chunk = handle_data_response(m.data)
     return summary_chunk, sql_chunk, df_chunk
 
+
 def render_assistant_message(content):
-    """Renders a complete, non-streamed assistant message for history."""
     if content.get("summary"):
         st.markdown(content["summary"])
     if content.get("sql"):
@@ -162,14 +206,15 @@ def render_assistant_message(content):
             except Exception as e:
                 st.error(f"Could not generate chart: {e}")
 
-# --- MAIN APP LAYOUT AND STYLE ---
 
+# --- MAIN APP LAYOUT AND STYLE ---
 st.markdown(
     """
 <style>
   :root {
     --sidebar-width: 18rem;
     --page-padding: 1rem;
+    --chat-input-border-color: #28a745;
   }
   [data-testid="stChatInputContainer"], [data-testid="stChatInput"] {
     position: fixed !important;
@@ -182,16 +227,21 @@ st.markdown(
     padding: 0.75rem 1rem !important;
     box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
     z-index: 9999 !important;
-    border: 2px solid #28a745 !important;
+    border: 2px solid var(--chat-input-border-color) !important;
     border-radius: 8px !important;
   }
   [data-testid="stVerticalBlock"] {
     padding-bottom: 6rem !important;
   }
+  .suggested-questions [data-testid="stButton"] {
+    border: 2px solid var(--chat-input-border-color) !important;
+    border-radius: 8px !important;
+  }
 </style>
 """,
     unsafe_allow_html=True,
 )
+
 
 # --- CONSTANTS ---
 WIDGET_BILLING_PROJECT = "billing_project"
@@ -218,41 +268,14 @@ RESULT_SQL = "sql"
 RESULT_DATAFRAME = "dataframe"
 RESULT_SUMMARY = "summary"
 RESULT_HAS_CHART = "has_chart"
+GENERAL_SYSTEM_INSTRUCTIONS = """When a user asks for both the highest/maximum and lowest/minimum of a value, you MUST return both the top and bottom records. Use a UNION ALL statement to combine the two queries. Also, only render a chart or visualization if the user specifically asks for one."""
 
-# --- AUTH & CLIENT SETUP ---
-cookies = EncryptedCookieManager(password="fVfYQc3B6XT52_23337588")
-if not cookies.ready():
-    st.info("Cookies not ready...pausing....")
-    st.stop()
-
-auth = Authenticator(cookies)
-auth.check_session()
-
-if not st.session_state.get("user_email"):
-    auth.login_widget()
-    st.stop()
-
-if "auth_token_info" not in st.session_state or st.session_state["auth_token_info"] is None:
-    st.error("Login succeeded but token info missing; please re-authenticate.")
-    st.stop()
-
-token_info = st.session_state["auth_token_info"]
-credentials = st.session_state.get(SESSION_CREDS)
+# --- AUTH & CLIENT SETUP (user_info already loaded above) ---
 user_info = {
-    "email": token_info.get("email"),
-    "name": token_info.get("id_token_claims", {}).get("name", token_info.get("email")),
-    "picture": token_info.get("id_token_claims", {}).get("picture"),
+    "email": st.session_state["auth_token_info"].get("email"),
+    "name": st.session_state["auth_token_info"]["id_token_claims"].get("name"),
+    "picture": st.session_state["auth_token_info"]["id_token_claims"].get("picture"),
 }
-if credentials and credentials.expired and credentials.refresh_token:
-    credentials.refresh(GoogleAuthRequest())
-
-data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
-data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
-
-st.session_state.setdefault(SESSION_MESSAGES, [])
-st.session_state.setdefault(SESSION_CONVERSATION_ID, None)
-st.session_state.setdefault(SESSION_DATA_AGENT_ID, None)
-
 
 # --- SIDEBAR ---
 if user_info.get(USER_INFO_PICTURE):
@@ -264,9 +287,13 @@ if st.sidebar.button("Logout"):
     if user_email:
         auth._clear_token_from_firestore(user_email)
         auth.cookies["user_email"] = ""
+
     for key in ["user_email", "auth_token_info", "creds"]:
         st.session_state.pop(key, None)
     st.rerun()
+
+
+
 
 st.sidebar.divider()
 st.sidebar.markdown("Enter your GCP project and BigQuery source below.")
@@ -287,42 +314,57 @@ default_table = "us_airports"
 
 with st.sidebar.expander("BigQuery Data Source", expanded=True):
     project_list = list(bq_sources.keys())
-    project_index = project_list.index(default_project) if default_project in project_list else 0
+    # safe default lookup
+    project_index = (
+        project_list.index(default_project) if default_project in project_list else 0
+    )
     bq_project_id = st.selectbox(
-        "BQ Project ID", project_list, index=project_index, key=WIDGET_BQ_PROJECT_ID
+        "BQ Project ID",
+        project_list,
+        index=project_index,
+        key=WIDGET_BQ_PROJECT_ID,
     )
-    dataset_list = list(bq_sources.get(bq_project_id, {}).keys())
-    dataset_index = dataset_list.index(default_dataset) if default_dataset in dataset_list else 0
+
+    dataset_list = list(bq_sources[bq_project_id].keys())
+    dataset_index = (
+        dataset_list.index(default_dataset) if default_dataset in dataset_list else 0
+    )
     bq_dataset_id = st.selectbox(
-        "BQ Dataset ID", dataset_list, index=dataset_index, key=WIDGET_BQ_DATASET_ID
+        "BQ Dataset ID",
+        dataset_list,
+        index=dataset_index,
+        key=WIDGET_BQ_DATASET_ID,
     )
-    table_list = bq_sources.get(bq_project_id, {}).get(bq_dataset_id, [])
+
+    table_list = bq_sources[bq_project_id][bq_dataset_id]
     table_index = table_list.index(default_table) if default_table in table_list else 0
     bq_table_id = st.selectbox(
-        "BQ Table ID", table_list, index=table_index, key=WIDGET_BQ_TABLE_ID
+        "BQ Table ID",
+        table_list,
+        index=table_index,
+        key=WIDGET_BQ_TABLE_ID,
     )
-    
-    if (
-        st.session_state.get(SESSION_PREV_BQ_PROJECT_ID) != bq_project_id
-        or st.session_state.get(SESSION_PREV_BQ_DATASET_ID) != bq_dataset_id
-        or st.session_state.get(SESSION_PREV_BQ_TABLE_ID) != bq_table_id
-    ):
-        st.session_state.update(
-            {
-                SESSION_DATA_AGENT_ID: None,
-                SESSION_CONVERSATION_ID: None,
-                SESSION_MESSAGES: [],
-                SESSION_PREV_BQ_PROJECT_ID: bq_project_id,
-                SESSION_PREV_BQ_DATASET_ID: bq_dataset_id,
-                SESSION_PREV_BQ_TABLE_ID: bq_table_id,
-            }
-        )
+
+    # only reset *once* when the user actually changes something
+    prev_proj = st.session_state.get(SESSION_PREV_BQ_PROJECT_ID)
+    prev_ds = st.session_state.get(SESSION_PREV_BQ_DATASET_ID)
+    prev_tbl = st.session_state.get(SESSION_PREV_BQ_TABLE_ID)
+
+    if (prev_proj, prev_ds, prev_tbl) != (bq_project_id, bq_dataset_id, bq_table_id):
+        # clear conversation & remember the new selection
+        st.session_state[SESSION_PREV_BQ_PROJECT_ID] = bq_project_id
+        st.session_state[SESSION_PREV_BQ_DATASET_ID] = bq_dataset_id
+        st.session_state[SESSION_PREV_BQ_TABLE_ID] = bq_table_id
+        st.session_state[SESSION_DATA_AGENT_ID] = None
+        st.session_state[SESSION_CONVERSATION_ID] = None
+        st.session_state[SESSION_MESSAGES] = []
         st.rerun()
 
+
 with st.sidebar.expander("System Instructions", expanded=True):
-    system_instruction = st.text_area(
-        label="Agent Instructions",
-        value="""When a user asks for both the highest/maximum and lowest/minimum of a value, you MUST return both the top and bottom records. Use a UNION ALL statement to combine the two queries. Also, only render a chart or visualization if the user specifically asks for one.""",
+    user_system_instruction = st.text_area(
+        "Agent Instructions",
+        value="""""",
         key=WIDGET_SYSTEM_INSTRUCTION,
         height=200,
     )
@@ -335,11 +377,8 @@ tab1, tab2, tab3, tab4 = st.tabs(
 )
 
 with tab1:
-    st.header("Ask a question below...")
     if not all([billing_project, bq_project_id, bq_dataset_id, bq_table_id]):
-        st.warning(
-            "👋 Please complete all GCP and BigQuery details in the sidebar to activate the chat."
-        )
+        st.warning("👋 Please complete all GCP and BigQuery details in the sidebar.")
         st.stop()
 
     # --- AGENT AND CONVERSATION SETUP ---
@@ -353,7 +392,10 @@ with tab1:
                 bq={"table_references": [bigq]}
             )
             ctx = geminidataanalytics.Context(
-                system_instruction=system_instruction, datasource_references=refs
+                system_instruction=GENERAL_SYSTEM_INSTRUCTIONS
+                + " "
+                + user_system_instruction,
+                datasource_references=refs,
             )
             agent = geminidataanalytics.DataAgent(
                 data_analytics_agent={"published_context": ctx}
@@ -382,9 +424,10 @@ with tab1:
             st.session_state[SESSION_CONVERSATION_ID] = convo_id
             st.toast("Conversation started")
 
-    # --- SUGGESTED QUESTIONS UI ---
-    st.markdown("---")
-    st.markdown("##### Suggested Questions")
+    st.markdown('<div class="suggested-questions">', unsafe_allow_html=True)
+
+    dataset_ref = f"{bq_project_id}.{bq_dataset_id}.{bq_table_id}"
+    st.markdown(f"##### Suggested Questions for `{dataset_ref}`")
     questions = SUGGESTED_QUESTIONS.get((bq_dataset_id, bq_table_id), [])
     if questions:
         cols = st.columns(len(questions))
@@ -398,23 +441,19 @@ with tab1:
                 )
     else:
         st.info("No suggested questions for this dataset.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- CHAT HISTORY ---
-    st.markdown("---")
     for msg in st.session_state[SESSION_MESSAGES]:
-        role = "user" if msg.get("role") == "user" else "assistant"
+        role = "user" if msg["role"] == "user" else "assistant"
         with st.chat_message(role):
             if role == "user":
                 st.markdown(msg["content"])
             else:
                 render_assistant_message(msg["content"])
-    
-    # --- CHAT INPUT AND PROCESSING LOGIC ---
+
     prompt = None
     if "prompt_from_suggestion" in st.session_state:
-        prompt = st.session_state.prompt_from_suggestion
-        del st.session_state.prompt_from_suggestion
-    
+        prompt = st.session_state.pop("prompt_from_suggestion")
     user_input = st.chat_input("What would you like to know?")
     if user_input:
         prompt = user_input
@@ -423,7 +462,6 @@ with tab1:
         st.session_state[SESSION_MESSAGES].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-
         with st.chat_message("assistant"):
             full_summary, final_sql, all_dfs = "", "", []
             with st.spinner("Thinking..."):
@@ -439,7 +477,6 @@ with tab1:
                 )
                 stream = data_chat_client.chat(request=req)
 
-            st.write("#### Assistant's Thought Process")
             for response in stream:
                 summary_chunk, sql_chunk, df_chunk = show_message(response)
                 if summary_chunk:
@@ -460,9 +497,6 @@ with tab1:
                     RESULT_DATAFRAME: final_df,
                     RESULT_HAS_CHART: False,
                 }
-                st.session_state[SESSION_MESSAGES].append(
-                    {"role": "assistant", "content": res}
-                )
             else:
                 st.markdown(full_summary)
                 res = {
@@ -471,9 +505,10 @@ with tab1:
                     RESULT_DATAFRAME: pd.DataFrame(),
                     RESULT_HAS_CHART: False,
                 }
-                st.session_state[SESSION_MESSAGES].append(
-                    {"role": "assistant", "content": res}
-                )
+
+            st.session_state[SESSION_MESSAGES].append(
+                {"role": "assistant", "content": res}
+            )
             st.rerun()
 
 with tab2:
@@ -488,7 +523,8 @@ with tab2:
                 if not agents:
                     st.info("No agents found.")
                 for ag in agents:
-                    with st.expander(ag.display_name or ag.name.split("/")[-1]):
+                    disp = ag.display_name or ag.name.split("/")[-1]
+                    with st.expander(disp):
                         st.write(f"**Resource:** {ag.name}")
                         if ag.description:
                             st.write(f"**Description:** {ag.description}")
@@ -519,6 +555,7 @@ with tab3:
                 )
             except Exception as e:
                 st.error(f"Load error: {e}")
+
     for conv in st.session_state[SESSION_CONVERSATIONS]:
         title = conv.name.split("/")[-1]
         with st.expander(f"Conversation: {title}"):

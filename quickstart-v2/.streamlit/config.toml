@@ -1,2 +1,19 @@
+[theme]
+base=”light”
+backgroundColor="white"
+secondaryBackgroundColor="#F0F2F6”
+primaryColor=”#F527DD"
+textColor=”#202124”
+baseRadius=”.6rem”
+buttonRadius=”full”
+
+[theme.sidebar]
+backgroundColor="#F8FAFD”
+secondaryBackgroundColor="#D3E3FD”
+
 [client]
 showErrorDetails = false
+
+
+
+
