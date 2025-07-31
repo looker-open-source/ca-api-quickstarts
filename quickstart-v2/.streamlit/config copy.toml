@@ -2,8 +2,6 @@
 
 [client]
 showErrorDetails = false
-toolbarMode = "minimal"
-
 
 [theme]
 # The base theme for the app.
@@ -12,14 +10,17 @@ base = "light"
 # The main background color for the app.
 backgroundColor = "#FFFFFF"
 
+# --- This is the line that controls the focus border color ---
+# It sets the accent for all interactive elements to your preferred blue.
 primaryColor = "#4285F4" # <<< THIS LINE CONTROLS THE FOCUS BORDER COLOR
 
 # The primary text color for the main app area.
 textColor = "#202124"
 
 # The background color for widgets like text inputs and select boxes.
-#secondaryBackgroundColor = "#ECF3FE"
+secondaryBackgroundColor = "#ECF3FE"
 
 # Optional styling for radii
 baseRadius = "0.6rem"
 buttonRadius = "full"
+

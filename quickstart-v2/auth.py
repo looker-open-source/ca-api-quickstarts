@@ -28,8 +28,8 @@ if not GCP_PROJECT:
     st.exception("GCP_PROJECT or GOOGLE_CLOUD_PROJECT is required.")
     st.stop()
 
-CLIENT_ID = get_secret(GCP_PROJECT, "ca-api-quickstart-v2-GOOGLE_CLIENT_ID")
-CLIENT_SECRET = get_secret(GCP_PROJECT, "ca-api-quickstart-v2-GOOGLE_CLIENT_SECRET")
+CLIENT_ID = get_secret(GCP_PROJECT, "secret-ca-api-clientid")
+CLIENT_SECRET = get_secret(GCP_PROJECT, "secret-ca-api-clientsecret")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8501")
 
 SCOPES = [
@@ -44,7 +44,6 @@ SCOPES = [
 ]
 
 FIRESTORE_TOKEN_COLLECTION = "user_oauth_tokens"
-
 
 class Authenticator:
     """

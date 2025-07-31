@@ -3,7 +3,6 @@ pandas
 altair
 google-cloud-firestore
 google-auth
-streamlit-oauth
 python-dotenv
 protobuf
 google-cloud-bigquery
@@ -14,3 +13,4 @@ streamlit_cookies_manager
 google-cloud-logging
 google-cloud-secret-manager
 google_auth_oauthlib
+google-cloud-geminidataanalytics

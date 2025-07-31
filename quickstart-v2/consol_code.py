@@ -8,6 +8,9 @@ DEFAULT_INCLUDE_PATTERNS = {
     "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app_secrets.py",
     "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app.py",
     "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/auth.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/1_Chat_with_data.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/2_Agents.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/3_Conversations.py",
 }
 
 ALWAYS_EXCLUDE_DIRS = {
