@@ -18,27 +18,42 @@ client = cloud_logging.Client(project=logging_project_id)
 logger = client.logger("ca-api-v2")
 
 
-def handle_errors(func):
-    """
-    Decorator to catch exceptions, log them, and halt Streamlit immediately.
-    For SessionAuthenticationError, logs out the user and clears session/cookies.
-    """
 
+# error_handling.py
+import functools
+import traceback
+import streamlit as st
+from google.api_core.exceptions import ServiceUnavailable, GoogleAPICallError
+
+def handle_errors(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+
+        # ←— catch the 503
+        except ServiceUnavailable as e:
+            st.warning("⚠️  The Google service is temporarily unavailable.  Please try again in a few seconds.")
+            # or if you just want to stop:
+            log_error(f"503 ServiceUnavailable: {e}", st.session_state.get("user_email"))
+            st.stop()
+
+
+        except GoogleAPICallError as e:
+            st.error(f"😞  A Google API error occurred: {e.message}")
+            log_error(f"GCP API error: {e} | {traceback.format_exc()}", st.session_state.get("user_email"))
+            st.stop()
+
+        # ←— your existing fallback
         except Exception as e:
             st.exception(
-                f"An unexpected application error occurred in '{func.__name__}': {str(e)}"
+                f"An unexpected application error occurred in '{func.__name__}': {e}"
             )
-            log_error(
-                f"{e} | {traceback.format_exc()}",
-                st.session_state.get("user_email", None),
-            )
+            log_error(f"{e} | {traceback.format_exc()}", st.session_state.get("user_email"))
             st.stop()
 
     return wrapper
+
 
 
 def handle_streamlit_exception(e: Exception, context_name: str = ""):
