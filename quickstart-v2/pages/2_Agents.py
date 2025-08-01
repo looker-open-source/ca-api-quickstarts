@@ -1,15 +1,18 @@
 import os
+
+import google.auth
 import streamlit as st
 from dotenv import load_dotenv
+from google.api_core import exceptions as google_exceptions
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.cloud import geminidataanalytics
+from google.protobuf.field_mask_pb2 import FieldMask
 from streamlit_cookies_manager import EncryptedCookieManager
+
 from app_secrets import get_secret
 from auth import Authenticator
-import google.auth
-from google.auth.transport.requests import Request as GoogleAuthRequest
-from google.protobuf.field_mask_pb2 import FieldMask
-from google.cloud import geminidataanalytics
-from google.api_core import exceptions as google_exceptions
 from error_handling import handle_errors
+
 
 @handle_errors
 def agents_main():
@@ -19,13 +22,16 @@ def agents_main():
         page_icon="🤖",
         layout="wide",
     )
-    st.markdown("""
+    st.markdown(
+        """
         <style>
         .block-container {
             padding-top: 0rem;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     # --- LOAD ENV VARS ---
     load_dotenv()
@@ -48,7 +54,10 @@ def agents_main():
         auth.login_widget()
         st.stop()
 
-    if "auth_token_info" not in st.session_state or st.session_state["auth_token_info"] is None:
+    if (
+        "auth_token_info" not in st.session_state
+        or st.session_state["auth_token_info"] is None
+    ):
         st.error("Login succeeded but token info missing; please re-authenticate.")
         st.stop()
 
@@ -69,9 +78,13 @@ def agents_main():
 
     # --- HEADER & USER INFO ---
     user_info = {
-        "name": st.session_state["auth_token_info"].get("id_token_claims", {}).get("name"),
+        "name": st.session_state["auth_token_info"]
+        .get("id_token_claims", {})
+        .get("name"),
         "email": st.session_state["auth_token_info"].get("email"),
-        "picture": st.session_state["auth_token_info"].get("id_token_claims", {}).get("picture"),
+        "picture": st.session_state["auth_token_info"]
+        .get("id_token_claims", {})
+        .get("picture"),
     }
     col1, col2 = st.columns([5, 1])
     with col1:
@@ -91,9 +104,7 @@ def agents_main():
                 st.rerun()
 
     # --- CLIENT SETUP ---
-    data_agent_client = geminidataanalytics.DataAgentServiceClient(
-        credentials=creds
-    )
+    data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=creds)
 
     # --- SIDEBAR SETTINGS ---
     @st.cache_data
@@ -145,12 +156,9 @@ def agents_main():
     agent_id_to_update = st.text_input(
         "Agent ID to update",
         key="update_agent_id",
-        help="Enter the final part of the agent resource name (e.g., 'agent_20250729120000')"
+        help="Enter the final part of the agent resource name (e.g., 'agent_20250729120000')",
     )
-    new_description = st.text_area(
-        "New description",
-        key="update_desc"
-    )
+    new_description = st.text_area("New description", key="update_desc")
     if st.button("Update Agent Description"):
         if not agent_id_to_update or not new_description:
             st.warning("Please provide both an Agent ID and a new description.")
@@ -159,7 +167,9 @@ def agents_main():
                 path = data_agent_client.data_agent_path(
                     billing_project, "global", agent_id_to_update
                 )
-                agent = geminidataanalytics.DataAgent(name=path, description=new_description)
+                agent = geminidataanalytics.DataAgent(
+                    name=path, description=new_description
+                )
                 mask = FieldMask(paths=["description"])
                 data_agent_client.update_data_agent(agent=agent, update_mask=mask)
                 st.success(f"Agent '{agent_id_to_update}' updated successfully!")
@@ -167,5 +177,6 @@ def agents_main():
                 st.error(f"API error updating agent: {e}")
             except Exception as e:
                 st.error(f"Unexpected error: {e}")
+
 
 agents_main()

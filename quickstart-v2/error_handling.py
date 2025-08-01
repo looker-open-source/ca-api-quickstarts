@@ -4,6 +4,7 @@ import functools
 import logging
 import sys
 import traceback
+
 import streamlit as st
 from google.cloud import logging as cloud_logging
 
@@ -18,12 +19,13 @@ client = cloud_logging.Client(project=logging_project_id)
 logger = client.logger("ca-api-v2")
 
 
-
 # error_handling.py
 import functools
 import traceback
+
 import streamlit as st
-from google.api_core.exceptions import ServiceUnavailable, GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, ServiceUnavailable
+
 
 def handle_errors(func):
     @functools.wraps(func)
@@ -33,15 +35,21 @@ def handle_errors(func):
 
         # ←— catch the 503
         except ServiceUnavailable as e:
-            st.warning("⚠️  The Google service is temporarily unavailable.  Please try again in a few seconds.")
+            st.warning(
+                "⚠️  The Google service is temporarily unavailable.  Please try again in a few seconds."
+            )
             # or if you just want to stop:
-            log_error(f"503 ServiceUnavailable: {e}", st.session_state.get("user_email"))
+            log_error(
+                f"503 ServiceUnavailable: {e}", st.session_state.get("user_email")
+            )
             st.stop()
-
 
         except GoogleAPICallError as e:
             st.error(f"😞  A Google API error occurred: {e.message}")
-            log_error(f"GCP API error: {e} | {traceback.format_exc()}", st.session_state.get("user_email"))
+            log_error(
+                f"GCP API error: {e} | {traceback.format_exc()}",
+                st.session_state.get("user_email"),
+            )
             st.stop()
 
         # ←— your existing fallback
@@ -49,11 +57,12 @@ def handle_errors(func):
             st.exception(
                 f"An unexpected application error occurred in '{func.__name__}': {e}"
             )
-            log_error(f"{e} | {traceback.format_exc()}", st.session_state.get("user_email"))
+            log_error(
+                f"{e} | {traceback.format_exc()}", st.session_state.get("user_email")
+            )
             st.stop()
 
     return wrapper
-
 
 
 def handle_streamlit_exception(e: Exception, context_name: str = ""):

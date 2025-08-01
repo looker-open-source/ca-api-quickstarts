@@ -13,13 +13,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 
 from app_secrets import get_secret
-from error_handling import (
-    handle_errors,
-    handle_streamlit_exception,
-    log_error,
-    log_user_login,
-    log_user_logout,
-)
+from error_handling import (handle_errors, handle_streamlit_exception,
+                            log_error, log_user_login, log_user_logout)
 
 load_dotenv()
 
@@ -44,6 +39,7 @@ SCOPES = [
 ]
 
 FIRESTORE_TOKEN_COLLECTION = "user_oauth_tokens"
+
 
 class Authenticator:
     """
@@ -103,7 +99,6 @@ class Authenticator:
         if expiry:
             creds.expiry = expiry
         return creds
-
 
     @handle_errors
     def _clear_token_from_firestore(self, user_email):

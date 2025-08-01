@@ -1,16 +1,18 @@
 import os
-import streamlit as st
-from dotenv import load_dotenv
-from streamlit_cookies_manager import EncryptedCookieManager
-from app_secrets import get_secret
-from auth import Authenticator
+
 import google.auth
-from google.auth.transport.requests import Request as GoogleAuthRequest
-from google.cloud import geminidataanalytics
-from google.api_core import exceptions as google_exceptions
 import pandas as pd
 import proto
+import streamlit as st
+from dotenv import load_dotenv
+from google.api_core import exceptions as google_exceptions
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.cloud import geminidataanalytics
 from google.protobuf.json_format import MessageToDict
+from streamlit_cookies_manager import EncryptedCookieManager
+
+from app_secrets import get_secret
+from auth import Authenticator
 from error_handling import handle_errors
 
 
@@ -22,13 +24,16 @@ def conversations_main():
         page_icon="📜",
         layout="wide",
     )
-    st.markdown("""
+    st.markdown(
+        """
         <style>
         .block-container {
             padding-top: 0rem;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     load_dotenv()
 
@@ -49,7 +54,10 @@ def conversations_main():
         auth.login_widget()
         st.stop()
 
-    if "auth_token_info" not in st.session_state or st.session_state["auth_token_info"] is None:
+    if (
+        "auth_token_info" not in st.session_state
+        or st.session_state["auth_token_info"] is None
+    ):
         st.error("Login succeeded but token info missing; please re-authenticate.")
         st.stop()
 
@@ -69,18 +77,18 @@ def conversations_main():
             st.stop()
 
     # --- CLIENT SETUP ---
-    client_agents = geminidataanalytics.DataAgentServiceClient(
-        credentials=creds
-    )
-    client_chat = geminidataanalytics.DataChatServiceClient(
-        credentials=creds
-    )
+    client_agents = geminidataanalytics.DataAgentServiceClient(credentials=creds)
+    client_chat = geminidataanalytics.DataChatServiceClient(credentials=creds)
 
     # --- HEADER & USER INFO ---
     user_info = {
         "email": st.session_state["auth_token_info"].get("email"),
-        "name": st.session_state.get("auth_token_info", {}).get("id_token_claims", {}).get("name"),
-        "picture": st.session_state.get("auth_token_info", {}).get("id_token_claims", {}).get("picture"),
+        "name": st.session_state.get("auth_token_info", {})
+        .get("id_token_claims", {})
+        .get("name"),
+        "picture": st.session_state.get("auth_token_info", {})
+        .get("id_token_claims", {})
+        .get("picture"),
     }
     col1, col2 = st.columns([5, 1])
     with col1:
@@ -93,8 +101,7 @@ def conversations_main():
             st.caption(user_info.get("email"))
             st.divider()
             if st.button("Logout", use_container_width=True):
-                auth._clear_token_from_firestore(
-                    st.session_state.get("user_email"))
+                auth._clear_token_from_firestore(st.session_state.get("user_email"))
                 cookies["user_email"] = ""
                 for k in ["user_email", "auth_token_info", "creds"]:
                     st.session_state.pop(k, None)
@@ -134,8 +141,7 @@ def conversations_main():
                         parent=f"projects/{billing_project}/locations/global"
                     )
                 )
-                st.session_state[SESSION_AGENTS_MAP] = {
-                    a.name: a for a in agents}
+                st.session_state[SESSION_AGENTS_MAP] = {a.name: a for a in agents}
                 convos = list(
                     client_chat.list_conversations(
                         parent=f"projects/{billing_project}/locations/global"
@@ -151,25 +157,27 @@ def conversations_main():
 
     # --- DISPLAY CONVERSATIONS & MESSAGES ---
     for conv in st.session_state[SESSION_CONVERSATIONS]:
-        title = conv.name.split('/')[-1]
+        title = conv.name.split("/")[-1]
         last_used = conv.last_used_time.strftime("%Y-%m-%d %H:%M:%S")
         with st.expander(f"Conversation: `{title}` (Last Used: {last_used})"):
             if st.button(f"View Messages for {title}", key=f"view_{title}"):
                 with st.spinner(f"Fetching messages for {title}..."):
                     try:
-                        msgs = list(
-                            client_chat.list_messages(parent=conv.name))
+                        msgs = list(client_chat.list_messages(parent=conv.name))
                         for m in msgs:
-                            role = "user" if getattr(
-                                m, "user_message", None) else "assistant"
+                            role = (
+                                "user"
+                                if getattr(m, "user_message", None)
+                                else "assistant"
+                            )
                             with st.chat_message(role):
                                 if role == "user":
                                     st.markdown(m.user_message.text)
                                 else:
-                                    content = _convert_history_message_to_dict(
-                                        m)
+                                    content = _convert_history_message_to_dict(m)
                                     render_assistant_message(content)
                     except Exception as e:
                         st.error(f"Message load error: {e}")
+
 
 conversations_main()

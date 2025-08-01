@@ -1,19 +1,19 @@
 # setup.py
-import streamlit as st
 import os
-import pandas as pd
-import altair as alt
-import proto
-import google.auth
-
-from streamlit_cookies_manager import EncryptedCookieManager
 from datetime import datetime
+
+import altair as alt
+import google.api_core.exceptions
+import google.auth
+import pandas as pd
+import proto
+import streamlit as st
 from dotenv import load_dotenv
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf import field_mask_pb2
 from google.protobuf.json_format import MessageToDict
-import google.api_core.exceptions
+from streamlit_cookies_manager import EncryptedCookieManager
 
 from app_secrets import get_secret
 from auth import Authenticator
@@ -60,6 +60,7 @@ def get_default_project_id():
     except Exception as e:
         handle_streamlit_exception(e, "get_default_project_id")
 
+
 def _convert_proto_to_dict(msg):
     if isinstance(msg, proto.marshal.collections.maps.MapComposite):
         return {k: _convert_proto_to_dict(v) for k, v in msg.items()}
@@ -68,6 +69,7 @@ def _convert_proto_to_dict(msg):
     if isinstance(msg, (int, float, str, bool)):
         return msg
     return MessageToDict(msg, preserving_proto_field_name=True)
+
 
 def render_assistant_message(content):
     if content.get("summary"):
@@ -96,6 +98,7 @@ def render_assistant_message(content):
                 st.altair_chart(chart, use_container_width=True)
             except Exception as e:
                 st.error(f"Could not generate chart: {e}")
+
 
 def _convert_history_message_to_dict(msg):
     m = msg.system_message
@@ -199,7 +202,10 @@ def initialize_app():
         auth.login_widget()
         st.stop()
 
-    if "auth_token_info" not in st.session_state or st.session_state["auth_token_info"] is None:
+    if (
+        "auth_token_info" not in st.session_state
+        or st.session_state["auth_token_info"] is None
+    ):
         st.error("Login succeeded but token info missing; please re-authenticate.")
         st.stop()
 
@@ -208,27 +214,39 @@ def initialize_app():
         try:
             credentials.refresh(GoogleAuthRequest())
             st.session_state["auth_token_info"]["access_token"] = credentials.token
-            st.session_state["auth_token_info"]["expiry"] = credentials.expiry.isoformat()
-            auth._save_token_to_firestore(st.session_state["user_email"], st.session_state["auth_token_info"])
+            st.session_state["auth_token_info"][
+                "expiry"
+            ] = credentials.expiry.isoformat()
+            auth._save_token_to_firestore(
+                st.session_state["user_email"], st.session_state["auth_token_info"]
+            )
         except Exception as e:
             st.error(f"Could not refresh credentials: {e}")
             st.stop()
 
     # --- CLIENT INITIALIZATION ---
-    data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=credentials)
-    data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=credentials)
+    data_agent_client = geminidataanalytics.DataAgentServiceClient(
+        credentials=credentials
+    )
+    data_chat_client = geminidataanalytics.DataChatServiceClient(
+        credentials=credentials
+    )
 
     # --- HEADER AND USER INFO ---
     user_info = {
         "email": st.session_state["auth_token_info"].get("email"),
         "name": st.session_state["auth_token_info"]["id_token_claims"].get("name"),
-        "picture": st.session_state["auth_token_info"]["id_token_claims"].get("picture"),
+        "picture": st.session_state["auth_token_info"]["id_token_claims"].get(
+            "picture"
+        ),
     }
     header_col1, header_col2 = st.columns([5, 1])
     with header_col1:
         st.title("Conversational Analytics API")
     with header_col2:
-        with st.popover(f"👤 {user_info.get(USER_INFO_NAME)}", use_container_width=True):
+        with st.popover(
+            f"👤 {user_info.get(USER_INFO_NAME)}", use_container_width=True
+        ):
             if user_info.get(USER_INFO_PICTURE):
                 st.image(user_info[USER_INFO_PICTURE], width=100)
             st.markdown(f"**{user_info.get(USER_INFO_NAME)}**")
@@ -250,12 +268,29 @@ def initialize_app():
     )
     with st.sidebar.expander("BigQuery Data Source", expanded=True):
         st.caption("You can use the default public datasets or enter your own.")
-        bq_project_id = st.text_input("BQ Project ID", value="bigquery-public-data", key=WIDGET_BQ_PROJECT_ID)
-        bq_dataset_id = st.text_input("BQ Dataset ID", value="faa", key=WIDGET_BQ_DATASET_ID)
-        bq_table_id = st.text_input("BQ Table ID", value="us_airports", key=WIDGET_BQ_TABLE_ID)
+        bq_project_id = st.text_input(
+            "BQ Project ID", value="bigquery-public-data", key=WIDGET_BQ_PROJECT_ID
+        )
+        bq_dataset_id = st.text_input(
+            "BQ Dataset ID", value="faa", key=WIDGET_BQ_DATASET_ID
+        )
+        bq_table_id = st.text_input(
+            "BQ Table ID", value="us_airports", key=WIDGET_BQ_TABLE_ID
+        )
 
-        prev_proj, prev_ds, prev_tbl = (st.session_state.get(k) for k in [SESSION_PREV_BQ_PROJECT_ID, SESSION_PREV_BQ_DATASET_ID, SESSION_PREV_BQ_TABLE_ID])
-        if (prev_proj, prev_ds, prev_tbl) != (bq_project_id, bq_dataset_id, bq_table_id):
+        prev_proj, prev_ds, prev_tbl = (
+            st.session_state.get(k)
+            for k in [
+                SESSION_PREV_BQ_PROJECT_ID,
+                SESSION_PREV_BQ_DATASET_ID,
+                SESSION_PREV_BQ_TABLE_ID,
+            ]
+        )
+        if (prev_proj, prev_ds, prev_tbl) != (
+            bq_project_id,
+            bq_dataset_id,
+            bq_table_id,
+        ):
             st.session_state[SESSION_PREV_BQ_PROJECT_ID] = bq_project_id
             st.session_state[SESSION_PREV_BQ_DATASET_ID] = bq_dataset_id
             st.session_state[SESSION_PREV_BQ_TABLE_ID] = bq_table_id
@@ -265,7 +300,9 @@ def initialize_app():
             st.rerun()
 
     with st.sidebar.expander("System Instructions", expanded=True):
-        user_system_instruction = st.text_area("Agent Instructions", value="", key=WIDGET_SYSTEM_INSTRUCTION, height=200)
+        user_system_instruction = st.text_area(
+            "Agent Instructions", value="", key=WIDGET_SYSTEM_INSTRUCTION, height=200
+        )
 
     if st.sidebar.button("Clear Chat 🧹"):
         st.session_state[SESSION_MESSAGES] = []
