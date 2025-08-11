@@ -6,28 +6,10 @@ from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError
 from backend.auth import authenticate, get_user_data
 
-# https://github.com/readybuilderone/streamlit-multiplepage-simpleauth/blob/main/utils/menu.py
 load_dotenv(override=True)
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-PROJECT_ID = os.getenv("PROJECT_ID")
+REDIRECT_URI = "http://localhost:8501"
 
-
-# Validate credentials
-if not all(
-        (GOOGLE_CLIENT_ID,
-            GOOGLE_CLIENT_SECRET,
-            REDIRECT_URI,
-            PROJECT_ID)
-):
-    st.error("Missing required environment variables. Check .env file."
-             f"Current variables {GOOGLE_CLIENT_ID=} "
-             f"{GOOGLE_CLIENT_SECRET=} {REDIRECT_URI=} ")
-    st.stop()
-
-client = GoogleOAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
 
 
 # just have this return true or false
