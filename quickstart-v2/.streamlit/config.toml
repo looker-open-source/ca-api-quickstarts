@@ -18,8 +18,13 @@ primaryColor = "#4285F4" # <<< THIS LINE CONTROLS THE FOCUS BORDER COLOR
 textColor = "#202124"
 
 # The background color for widgets like text inputs and select boxes.
-#secondaryBackgroundColor = "#ECF3FE"
+#secondaryBackgroundColor = "#eee8ecff"
+
 
 # Optional styling for radii
 baseRadius = "0.6rem"
 buttonRadius = "full"
+
+[theme.sidebar]
+# ← only the sidebar’s background
+backgroundColor          = "#f0f0f0ff"

@@ -96,18 +96,30 @@ def chat_part_one():
 
     # Refresh token
     creds = st.session_state.get("creds")
+# Refresh token
+    creds = st.session_state.get("creds")
     if creds and creds.refresh_token:
         try:
-            creds.refresh(GoogleAuthRequest())
-            st.session_state["auth_token_info"]["access_token"] = creds.token
-            st.session_state["auth_token_info"]["expiry"] = creds.expiry.isoformat()
-            auth._save_token_to_firestore(
-                st.session_state["user_email"],
-                st.session_state["auth_token_info"],
-            )
+            # Only refresh if the token is expired
+            if not creds.valid:
+                creds.refresh(GoogleAuthRequest())
+                st.session_state["creds"] = creds # Save the refreshed credentials
+                st.session_state["auth_token_info"]["access_token"] = creds.token
+                if creds.expiry:
+                    st.session_state["auth_token_info"]["expiry"] = creds.expiry.isoformat()
+                auth._save_token_to_firestore(
+                    st.session_state["user_email"],
+                    st.session_state["auth_token_info"],
+                )
+
         except Exception as e:
-            st.error(f"Could not refresh credentials: {e}")
-            st.stop()
+            # This logic is copied from your main_part_one and is the correct way to handle this
+            st.warning("Your session has expired. Please log in again.")
+            auth._clear_token_from_firestore(st.session_state.get("user_email"))
+            cookies["user_email"] = ""
+            for k in ["user_email", "auth_token_info", "creds"]:
+                st.session_state.pop(k, None)
+            st.rerun()
 
     data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=creds)
     data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=creds)

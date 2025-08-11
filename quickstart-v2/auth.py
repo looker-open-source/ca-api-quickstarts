@@ -26,7 +26,7 @@ if not GCP_PROJECT:
 CLIENT_ID = get_secret(GCP_PROJECT, "secret-ca-api-clientid")
 CLIENT_SECRET = get_secret(GCP_PROJECT, "secret-ca-api-clientsecret")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8501")
-
+print(f"{CLIENT_ID} {CLIENT_SECRET} {REDIRECT_URI}")
 SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",

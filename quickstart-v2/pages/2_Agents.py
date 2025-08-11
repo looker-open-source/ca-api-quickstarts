@@ -16,7 +16,6 @@ from error_handling import handle_errors
 
 @handle_errors
 def agents_main():
-    # --- PAGE CONFIG ---
     st.set_page_config(
         page_title="Agents",
         page_icon="🤖",
