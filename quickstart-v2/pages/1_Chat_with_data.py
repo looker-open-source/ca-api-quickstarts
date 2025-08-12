@@ -1,8 +1,7 @@
-# --- START FILE: pages/1_Chat_with_data.py ---
 import os
 import getpass
 from datetime import datetime
-from google.protobuf.message import Message as PbMessage  # optional, for classic protos
+from google.protobuf.message import Message as PbMessage
 import altair as alt
 import google.auth
 import pandas as pd
@@ -15,7 +14,6 @@ from streamlit_extras.add_vertical_space import add_vertical_space
 from error_handling import handle_errors
 
 
-# ---------- ADC helpers ----------
 def get_adc_credentials(scopes=None):
     creds, project = google.auth.default(scopes=scopes)
     if not creds.valid:
@@ -28,7 +26,6 @@ def get_adc_credentials(scopes=None):
 
 @handle_errors
 def chat_part_one():
-    # --- PAGE CONFIG ---
     st.set_page_config(
         page_title="Chat with your data",
         page_icon="💬",
@@ -44,7 +41,6 @@ def chat_part_one():
         unsafe_allow_html=True,
     )
 
-    # --- GLOBAL CSS (keep your centered chat input) ---
     st.markdown(
         """
         <style>
@@ -66,7 +62,6 @@ def chat_part_one():
 
     load_dotenv()
 
-    # --- ADC (single source of truth) ---
     SCOPES = [
         "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/bigquery",
@@ -75,7 +70,6 @@ def chat_part_one():
     st.session_state["adc_credentials"] = creds
     st.session_state["gcp_project_id"] = project_id
 
-    # --- Header: left title + right chip ---
     st.markdown(
             """
             <style>
@@ -99,15 +93,14 @@ def chat_part_one():
             with st.popover(f"👤 {os_user}", use_container_width=True, help="Click here to logout."):
                 st.markdown(f"**{os_user} authenticated with Application Default Credentials**")
 
-    # --- Clients (credentials forwarded) ---
     data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=creds)
     data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=creds)
 
     SUGGESTED_QUESTIONS = {
         ("faa", "us_airports"): [
-            "What are the highest and lowest elevation airports in the United States,\nincluding the state, county, and city? ✈️",
+            "What is the lowest elevation airport in the United States? Include the state, county, city, and lat/long, if possible? ✈️",
             "Which states have airports in multiple timezones? 🕒",
-            "What is the northernmost, southernmost, easternmost, and westernmost airport in the contiguous United States? 🧭",
+            "What is the northernmost, southernmost, easternmost, and westernmost airport in the continental United States? 🧭",
         ]
     }
 
@@ -161,7 +154,6 @@ def chat_part_one():
         return obj
 
 
-    # Sidebar settings
     @st.cache_data
     def get_default_project_id():
         try:
@@ -215,7 +207,6 @@ def chat_part_one():
             data_agent_client.create_data_agent(request=req)
             st.session_state.data_agent_id = agent_id
 
-    # Create conversation (once)
     if "conversation_id" not in st.session_state:
         convo_id = f"conv_{pd.Timestamp.now():%Y%m%d%H%M%S}"
         with st.spinner(f"Starting conversation '{convo_id}'..."):
@@ -232,7 +223,6 @@ def chat_part_one():
             data_chat_client.create_conversation(request=req)
             st.session_state.conversation_id = convo_id
 
-    # Suggested questions
     dataset_ref = f"{bq_project_id}.{bq_dataset_id}.{bq_table_id}"
     st.markdown(f"##### Suggested Questions for `{dataset_ref}`")
     add_vertical_space(1)
@@ -250,7 +240,6 @@ def chat_part_one():
     else:
         st.info("No suggested questions for this dataset.")
 
-    # Chat history
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
     for msg in st.session_state["messages"]:
@@ -261,19 +250,16 @@ def chat_part_one():
             else:
                 render_assistant_message(msg.get("content", {}))
 
-    # Chat input
     prompt = st.session_state.pop("prompt_from_suggestion", None)
     user_input = st.chat_input("What would you like to know?")
     if user_input:
         prompt = user_input
 
     if prompt:
-        # Record user message
         st.session_state["messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Assistant response
         with st.chat_message("assistant"):
             full_summary = ""
             final_sql = ""
@@ -322,4 +308,3 @@ def chat_part_one():
 
 
 chat_part_one()
-

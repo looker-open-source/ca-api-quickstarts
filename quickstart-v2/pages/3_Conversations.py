@@ -1,4 +1,3 @@
-# --- START FILE: pages/3_Conversations.py ---
 import os
 import getpass
 from datetime import datetime, timezone
@@ -22,7 +21,6 @@ def get_adc_credentials(scopes=None):
 
 
 def ts_to_dt(ts):
-    """Convert proto Timestamp or ISO-ish to aware datetime (UTC)."""
     try:
         return ts.ToDatetime().astimezone(timezone.utc)
     except Exception:
@@ -41,17 +39,14 @@ def conversations_main():
     st.markdown("<style>.block-container { padding-top: 0rem; }</style>", unsafe_allow_html=True)
     load_dotenv()
 
-    # ADC
     SCOPES = ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/bigquery"]
     creds, project_id = get_adc_credentials(SCOPES)
     st.session_state["adc_credentials"] = creds
     st.session_state["gcp_project_id"] = project_id
 
-    # Clients
     client_agents = geminidataanalytics.DataAgentServiceClient(credentials=creds)
     client_chat = geminidataanalytics.DataChatServiceClient(credentials=creds)
 
-    # Header
     col1, col2 = st.columns([5, 1])
     with col1:
         add_vertical_space(5)
@@ -67,7 +62,6 @@ def conversations_main():
                     st.caption(sa_email)
                 st.caption(f"Project: {project_id}")
 
-    # Sidebar
     @st.cache_data
     def get_default_project_id():
         try:
@@ -84,7 +78,6 @@ def conversations_main():
         st.sidebar.error("Please enter your GCP Billing Project ID")
         st.stop()
 
-    # State
     SESSION_AGENTS_MAP = "agents_map"
     SESSION_CONVERSATIONS = "conversations"
     if SESSION_AGENTS_MAP not in st.session_state:
@@ -92,9 +85,6 @@ def conversations_main():
     if SESSION_CONVERSATIONS not in st.session_state:
         st.session_state[SESSION_CONVERSATIONS] = []
 
-    # ============================
-    # Fetch + Filter form
-    # ============================
     st.subheader("List & Filter Conversations")
 
     with st.form("filter_conversations_form", clear_on_submit=False):
@@ -143,7 +133,6 @@ def conversations_main():
     convs = st.session_state[SESSION_CONVERSATIONS]
     agents_map = st.session_state[SESSION_AGENTS_MAP]
 
-    # Agent multiselect (resource names)
     agent_choices = sorted(agents_map.keys())
     picked_agents = st.multiselect(
         "Filter by Agent(s)",
@@ -152,13 +141,10 @@ def conversations_main():
         key="conv_agent_filter",
     ) if agent_choices else []
 
-    # ---- helper: cached message fetch per conversation ----
     @st.cache_data(show_spinner=False)
     def load_messages_for_conversation(conv_name: str):
-        # returns a list of messages for a conversation
         return list(client_chat.list_messages(parent=conv_name))
 
-    # ---- first apply light filters (date/agent) before expensive message scans ----
     def matches_agent(c):
         if not picked_agents:
             return True
@@ -184,7 +170,6 @@ def conversations_main():
 
     prelim = [c for c in convs if matches_agent(c) and matches_date(c)]
 
-    # ---- message text search (expensive, but cached) ----
     q = search_text.lower()
     if q:
         with st.spinner("Searching messages…"):
@@ -194,17 +179,14 @@ def conversations_main():
                 except Exception:
                     return False
                 for m in msgs:
-                    # user text
                     utxt = getattr(getattr(m, "user_message", None), "text", None)
                     if isinstance(utxt, str) and q in utxt.lower():
                         return True
-                    # assistant parts (optional)
                     if include_assistant:
                         sm = getattr(m, "system_message", None)
                         t = getattr(sm, "text", None)
                         parts = getattr(t, "parts", None) if t else None
                         if parts:
-                            # parts may be list[str] or list of objects -> convert to strings
                             for p in parts:
                                 s = str(p)
                                 if q in s.lower():
@@ -215,7 +197,6 @@ def conversations_main():
     else:
         filtered = prelim
 
-    # ---- sort/limit ----
     def sort_key(c):
         if st.session_state["conv_sort_field"] == "created":
             dt = ts_to_dt(getattr(c, "create_time", None))
@@ -229,7 +210,6 @@ def conversations_main():
 
     st.caption(f"Showing {len(filtered)} of {len(convs)} conversations (after filters).")
 
-    # ---- render list ----
     for conv in filtered:
         cid = conv.name.split("/")[-1]
         last_used_dt = ts_to_dt(getattr(conv, "last_used_time", None))
@@ -250,7 +230,6 @@ def conversations_main():
 
             show_raw = st.checkbox("Show raw message JSON (for debugging)", value=False, key=f"raw_{cid}")
 
-            # --- helpers ---
             def _parts_to_text(parts):
                 if parts is None:
                     return ""
@@ -262,7 +241,6 @@ def conversations_main():
                 to_dict = getattr(m, "to_dict", None)
                 if callable(to_dict):
                     return to_dict()
-                # fallback – proto message?
                 try:
                     from google.protobuf.json_format import MessageToDict
                     return MessageToDict(m, preserving_proto_field_name=True)
@@ -270,14 +248,11 @@ def conversations_main():
                     return {"_repr": str(m)}
 
             def extract_display_text(m):
-                """Return (role, text, extras_dict) where text may be empty if only data/chart/sql present."""
-                # User side
                 um = getattr(m, "user_message", None)
                 if um is not None:
                     utxt = getattr(um, "text", None)
                     return ("user", utxt if isinstance(utxt, str) else (str(utxt) if utxt else ""), {})
 
-                # Assistant side (stored)
                 am = getattr(m, "assistant_message", None)
                 if am is not None:
                     txt = getattr(am, "text", None)
@@ -285,15 +260,12 @@ def conversations_main():
                         parts = getattr(txt, "parts", None)
                         if parts:
                             return ("assistant", _parts_to_text(parts), {})
-                        # sometimes txt can be a plain string-like
                         if isinstance(txt, str):
                             return ("assistant", txt, {})
 
-                    # No text – maybe structured payloads
                     extras = {}
                     data = getattr(am, "data", None)
                     if data is not None:
-                        # generated_sql + table-like data
                         gen_sql = getattr(data, "generated_sql", None)
                         if gen_sql:
                             extras["generated_sql"] = gen_sql
@@ -307,7 +279,6 @@ def conversations_main():
 
                     return ("assistant", "", extras)
 
-                # Legacy / streaming-ish shape
                 sm = getattr(m, "system_message", None)
                 if sm is not None:
                     t = getattr(sm, "text", None)
@@ -317,7 +288,7 @@ def conversations_main():
                     if isinstance(t, str):
                         return ("assistant", t, {})
 
-                return ("assistant", "", {})  # default
+                return ("assistant", "", {})
 
             if st.button(f"View Messages for {cid}", key=f"view_{cid}"):
                 with st.spinner(f"Fetching messages for {cid}…"):
@@ -332,14 +303,12 @@ def conversations_main():
                                 if role == "user":
                                     text_to_show = getattr(getattr(m, "user_message", None), "text", "") or ""
                                 else:
-                                    # First check assistant_message.text.parts
                                     am = getattr(m, "assistant_message", None)
                                     if am and getattr(am, "text", None):
                                         parts = getattr(am.text, "parts", None)
                                         if parts:
                                             text_to_show = "".join(parts)
 
-                                    # Fallback: system_message.text.parts
                                     if not text_to_show:
                                         sm = getattr(m, "system_message", None)
                                         if sm and getattr(sm, "text", None):
@@ -352,8 +321,4 @@ def conversations_main():
                     except Exception as e:
                         st.error(f"Message load error: {e}")
 
-
-
-
 conversations_main()
-# --- END FILE: pages/3_Conversations.py ---

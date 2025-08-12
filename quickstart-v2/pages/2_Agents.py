@@ -1,4 +1,3 @@
-# --- START FILE: pages/2_Agents.py ---
 import os
 import getpass
 from datetime import datetime, timezone
@@ -32,7 +31,6 @@ def agents_main():
 
     load_dotenv()
 
-    # ---- ADC (single source of truth) ----
     SCOPES = [
         "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/bigquery",
@@ -41,7 +39,6 @@ def agents_main():
     st.session_state["adc_credentials"] = creds
     st.session_state["gcp_project_id"] = project_id
 
-    # ---- Header: left title + right account chip ----
     col1, col2 = st.columns([5, 1])
     with col1:
         add_vertical_space(5)
@@ -63,7 +60,6 @@ def agents_main():
                 st.write("**Authentication**")
                 st.code("Application Default Credentials (ADC)", language="text")
 
-    # ---- Client ----
     data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=creds)
 
     @st.cache_data
@@ -74,7 +70,6 @@ def agents_main():
         except Exception:
             return None
 
-    # ---- Sidebar ----
     st.sidebar.header("Settings")
     billing_project = st.sidebar.text_input(
         "GCP Billing Project ID", get_default_project_id(), key="billing_project"
@@ -83,15 +78,10 @@ def agents_main():
         st.sidebar.error("Please enter your GCP Billing Project ID")
         st.stop()
 
-    # ======================================================================
-    # List & Filter Agents
-    # ======================================================================
     st.subheader("List and Show Agent Details")
 
     def ts_to_dt(ts):
-        """Safely convert proto Timestamp or ISO-ish value to aware datetime (UTC)."""
         try:
-            # proto Timestamp has ToDatetime()
             return ts.ToDatetime().astimezone(timezone.utc)
         except Exception:
             try:
@@ -102,7 +92,6 @@ def agents_main():
             except Exception:
                 return None
 
-    # ---- Filters UI
     with st.form("filter_agents_form", clear_on_submit=False):
         f_col1, f_col2, f_col3 = st.columns([2, 2, 2])
         with f_col1:
@@ -136,7 +125,6 @@ def agents_main():
                 st.error(f"Unexpected error: {e}")
                 agents = []
 
-        # ---- Apply filters (client-side)
         original_count = len(agents)
 
         q = search_text.lower()
@@ -165,7 +153,6 @@ def agents_main():
 
         filtered = [ag for ag in agents if matches_text(ag) and matches_desc(ag) and within_created_range(ag)]
 
-        # Sort
         def sort_key(ag):
             if sort_field == "updated":
                 dt = ts_to_dt(getattr(ag, "update_time", None))
@@ -176,7 +163,6 @@ def agents_main():
         reverse = (sort_dir == "desc")
         filtered.sort(key=sort_key, reverse=reverse)
 
-        # Limit
         filtered = filtered[: int(max_items)]
 
         st.caption(f"Showing {len(filtered)} of {original_count} agents (after filters).")
@@ -200,9 +186,6 @@ def agents_main():
 
     st.divider()
 
-    # ======================================================================
-    # Update Agent
-    # ======================================================================
     st.subheader("Update a Data Agent")
     agent_id_to_update = st.text_input(
         "Agent ID to update",
@@ -231,4 +214,3 @@ def agents_main():
 
 
 agents_main()
-# --- END FILE: pages/2_Agents.py ---
