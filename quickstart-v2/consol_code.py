@@ -5,10 +5,10 @@ import sys
 
 DEFAULT_OUTPUT_FILENAME = "output.txt"
 DEFAULT_INCLUDE_PATTERNS = {
-    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/terraform/cloud_run.tf",
-    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/terraform/firestore.tf",
-    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/terraform/main.tf",
-    "//Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/terraform/secrets.tf",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/app.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/1_Chat_with_data.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/2_Agents.py",
+    "/Users/steveswalker/code/ca-api-quickstarts/quickstart-v2/pages/3_Conversations.py",
 }
 
 ALWAYS_EXCLUDE_DIRS = {
