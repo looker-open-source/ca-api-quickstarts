@@ -164,7 +164,7 @@ def agent_chat_adk_main():
         st.exception(e)
         st.info("Install ADK with: `pip install google-adk`")
 
-    
+    # --- CHANGE: Added the weather tool functions here ---
     def get_weather_description(wmo_code: int) -> str:
         """Converts WMO weather code to a human-readable description."""
         wmo_codes = {
