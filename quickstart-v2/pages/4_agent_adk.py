@@ -1,3 +1,5 @@
+#quickstart-v2/pages/4_agent_adk.py
+
 import os
 import asyncio
 import getpass
@@ -139,7 +141,7 @@ def agent_chat_adk_main():
             "1. **For any questions that can be answered by the connected data source, "
             "you MUST use the `call_gemini_data_analytics_tool`.** This is your "
             "primary method for data retrieval.\n\n"
-            "2. **For ALL OTHER questions (e.g., geography, general knowledge, providing "
+            "2. **For ALL OTHER questions (e.g., weather, geography, general knowledge, providing "
             "information not found by the tool), you MUST use your own internal knowledge.** "
             "If the tool fails or returns no information, rely on your general "
             "knowledge to answer the user's question. Do NOT attempt to use the data "
