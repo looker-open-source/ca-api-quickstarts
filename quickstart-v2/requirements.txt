@@ -14,3 +14,4 @@ google-cloud-logging
 google-cloud-secret-manager
 google_auth_oauthlib
 google-cloud-geminidataanalytics
+httpx_oauth
