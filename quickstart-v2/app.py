@@ -1,142 +1,92 @@
 # === FILE: app.py ===
 
+import asyncio
+import time
 import os
-
 import streamlit as st
 from dotenv import load_dotenv
-from google.auth.transport.requests import Request as GoogleAuthRequest
-from streamlit_cookies_manager import EncryptedCookieManager
-from app_secrets import get_secret
-from auth import Authenticator
-from error_handling import handle_errors, handle_streamlit_exception
+from auth import getAuthUrl, getCreds
+from google.cloud import geminidataanalytics
+from google.api_core import exceptions as google_exceptions
 
-@handle_errors
-def main_part_one():
-    # --- PAGE CONFIG ---
+load_dotenv(override=True)
+
+PROJECT_ID = os.getenv("PROJECT_ID")
+
+def _init():
+    if "creds" not in st.session_state:
+        st.write("Please login")
+        # TODO: investigate if we need asyncio
+        auth_url = asyncio.run(getAuthUrl())
+        if auth_url:
+            st.markdown(f"[Login with Google]({auth_url})")
+
+        code = st.query_params.get("code")
+        if code:
+            creds = asyncio.run(getCreds(code))
+            if creds:
+                st.query_params.clear()
+                st.session_state.creds = creds
+                st.rerun()
+            else:
+                st.error("Failed to login and get creds")
+    else:
+        if st.sidebar.button("Logout"):
+            st.session_state.clear()
+            st.rerun()
+        
+        # Initialize state
+        if "initialized" not in st.session_state:
+            st.session_state.project_id = PROJECT_ID
+            st.session_state.dataqna_project_id = "bigquery-public-data"
+            st.session_state.dataset_id = "san_francisco"
+            st.session_state.table_ids = ("street_trees",)
+            st.session_state.system_instruction = "answer questions"
+            # if "looker_host" not in st.session_state:
+            #     st.session_state.looker_host = "www.demo.com"
+            # if "looker_secret" not in st.session_state:
+            #     st.session_state.looker_secret = "fillin"
+            # if "looker_client_id" not in st.session_state:
+            #     st.session_state.looker_client_id = "fillin"
+            # if "looker_explore" not in st.session_state:
+            #     st.session_state.looker_explore = "fillin"
+            # if "looker_model" not in st.session_state:
+            #     st.session_state.looker_model = "fillin"
+            # if "data_source" not in st.session_state:
+            #     st.session_state.data_source = "BigQuery"
+            with st.spinner("Loading"):
+                st.session_state.data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=st.session_state.creds)
+                try:
+                    req = geminidataanalytics.ListDataAgentsRequest(
+                        parent=f"projects/{st.session_state.project_id}/locations/global"
+                    )
+                    agents = list(st.session_state.data_agent_client.list_data_agents(request=req))
+                    if not agents:
+                        st.session_state.agents = []
+                    for ag in agents:
+                        st.session_state.agents = agents
+                except google_exceptions.GoogleAPICallError as e:
+                    st.error(f"API error fetching agents: {e}")
+                except Exception as e:
+                    st.error(f"Unexpected error: {e}")
+            st.session_state.initialized = True
+
+        pg = st.navigation([
+                        st.Page("pages/agents.py",
+                                title="Agents", icon="⚙️"),
+                        st.Page("pages/chat.py",
+                                title="Chat",
+                                icon="🤖")])
+        pg.run()
+
+def main():
     st.set_page_config(
-        page_title="Conversational Analytics API",
+        page_title="CA API App",
         page_icon="🗣️",
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    st.markdown(
-        """
-        <style>
-        .block-container {
-            padding-top: 0rem;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
 
-    # --- LOAD ENVIRONMENT VARIABLES ---
-    load_dotenv()
+    _init()
 
-    # --- AUTHENTICATION SETUP ---
-    cookies = EncryptedCookieManager(
-        password=get_secret(
-            os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT"),
-            "EncryptedCookieManager-secret",
-        )
-    )
-    if not cookies.ready():
-        st.info("Initializing session, please wait…")
-        st.stop()
-
-    auth = Authenticator(cookies)
-    auth.check_session()
-
-    if not st.session_state.get("user_email"):
-        auth.login_widget()
-        st.stop()
-
-    if (
-        "auth_token_info" not in st.session_state
-        or st.session_state["auth_token_info"] is None
-    ):
-        st.error("Login succeeded but token info is missing. Please log in again.")
-        auth.logout_widget() # Give user a way to escape
-        st.stop()
-
-    # --- TOKEN REFRESH LOGIC ---
-    creds = st.session_state.get("creds")
-    if creds and creds.refresh_token:
-        try:
-            if not creds.valid:
-                # The credentials object is stale, refresh it
-                creds.refresh(GoogleAuthRequest())
-                
-                # Create a complete, updated token dictionary for saving
-                updated_token_info = st.session_state["auth_token_info"].copy()
-                updated_token_info["access_token"] = creds.token
-                if creds.expiry:
-                    updated_token_info["expiry"] = creds.expiry.isoformat()
-                # Ensure the refresh token is explicitly preserved
-                updated_token_info["refresh_token"] = creds.refresh_token 
-
-                # Update session state with the new, authoritative data
-                st.session_state["creds"] = creds
-                st.session_state["auth_token_info"] = updated_token_info
-                
-                # Save the complete token data back to Firestore
-                auth._save_token_to_firestore(
-                    st.session_state["user_email"],
-                    updated_token_info,
-                )
-
-        except Exception as e:
-            st.warning("Your session has expired or could not be refreshed. Please log in again.")
-            # Clear out the invalid session state completely
-            user_email_to_clear = st.session_state.get("user_email")
-            if user_email_to_clear:
-                auth._clear_token_from_firestore(user_email_to_clear)
-            if "user_email" in cookies:
-                del cookies["user_email"]
-            for k in ["user_email", "auth_token_info", "creds", "user_info"]:
-                st.session_state.pop(k, None)
-            st.rerun()
-
-    # --- REMAINDER OF YOUR APP LOGIC ---
-    user_info = {
-        "email": st.session_state.get("auth_token_info", {}).get("email"),
-        "name": st.session_state.get("auth_token_info", {})
-        .get("id_token_claims", {})
-        .get("name"),
-        "picture": st.session_state.get("auth_token_info", {})
-        .get("id_token_claims", {})
-        .get("picture"),
-    }
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.title("Welcome to the Conversational Analytics API")
-        st.markdown(
-            """
-    This application provides:
-
-    - **Chat with your BigQuery data** - **Manage Data Agents** - **Browse Conversation History** Select a page from the sidebar to get started.
-            """
-        )
-    with col2:
-        if user_info.get("name"): # Only show popover if user info is loaded
-            with st.popover(f"👤 {user_info.get('name')}", use_container_width=True, help="Click here to logout."):
-                if user_info.get("picture"):
-                    st.image(user_info["picture"], width=80)
-                st.markdown(f"**{user_info.get('name')}**")
-                st.caption(user_info.get("email"))
-                st.divider()
-                if st.button("Logout", use_container_width=True):
-                    auth._clear_token_from_firestore(st.session_state["user_email"])
-                    if "user_email" in cookies:
-                         del cookies["user_email"]
-                    for k in ["user_email", "auth_token_info", "creds", "user_info"]:
-                        st.session_state.pop(k, None)
-                    st.rerun()
-
-    # --- SIDEBAR NAVIGATION NOTICE ---
-    st.sidebar.title("Navigation")
-    st.sidebar.info("Choose one: Chat with your data, Agents, Conversations")
-
-
-if __name__ == "__main__":
-    main_part_one()
+main()
