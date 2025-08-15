@@ -97,8 +97,6 @@ def agents_main():
                 bq_dataset_id = st.text_input("BigQuery dataset ID:")
                 bq_table_id = st.text_input("BigQuery table ID:")
             else:
-                looker_client_id=st.text_input("Looker client ID:")
-                looker_client_secret=st.text_input("Looker client secret:")
                 looker_instance_url=st.text_input("Looker instance URL:")
                 looker_model=st.text_input("Looker model:")
                 looker_explore=st.text_input("Looker explore:")
@@ -122,10 +120,6 @@ def agents_main():
                 looker_explore_reference.looker_instance_uri = looker_instance_url
                 looker_explore_reference.lookml_model = looker_model
                 looker_explore_reference.explore = looker_explore
-
-                credentials = geminidataanalytics.Credentials()
-                credentials.oauth.secret.client_id = looker_client_id
-                credentials.oauth.secret.client_secret = looker_client_secret
                 datasource_references.looker.explore_references = [looker_explore_reference]
 
             published_context.datasource_references = datasource_references

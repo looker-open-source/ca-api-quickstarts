@@ -10,12 +10,6 @@ from state import init_state
 
 def _init():
     if "creds" not in st.session_state:
-        st.write("Please login")
-        # TODO: investigate if we need asyncio
-        auth_url = asyncio.run(getAuthUrl())
-        if auth_url:
-            st.markdown(f'<a href="{auth_url}" target="_self">Login with Google</a>', unsafe_allow_html=True)
-
         code = st.query_params.get("code")
         if code:
             creds = asyncio.run(getCreds(code))
@@ -25,6 +19,12 @@ def _init():
                 st.rerun()
             else:
                 st.error("Failed to login and get creds")
+        else:       
+            st.write("Welcome")
+            # TODO: investigate if we need asyncio
+            auth_url = asyncio.run(getAuthUrl())
+            if auth_url:
+                st.markdown(f'<a href="{auth_url}" target="_self">Please login with Google</a>', unsafe_allow_html=True)
     else:
         # Initialize state
         if "initialized" not in st.session_state:

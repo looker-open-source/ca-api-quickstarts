@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 PROJECT_ID = os.getenv("PROJECT_ID")
+LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
+LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
 
 # Depends on session_state.creds being set
 def init_state():
@@ -40,7 +42,7 @@ def fetch_agents_state(rerun=True):
             parent=f"projects/{project_id}/locations/global"
         )
         agents = list(client.list_data_agents(request=request))
-        st.session_state.agents = agents if len(agents) > 0 else None
+        st.session_state.agents = agents if len(agents) > 0 else []
         if rerun:
             st.rerun()
     except google_exceptions.GoogleAPICallError as e:
@@ -104,7 +106,6 @@ def change_agent(agent_index):
     if st.session_state.convos:
         change_convo(0)
     
-
 # Changes convo index, clears messages, and fetch messages
 def change_convo(convo_index):
     st.session_state.convo_index = convo_index
@@ -121,6 +122,7 @@ def create_convo():
 
     conversation = geminidataanalytics.Conversation()
     conversation.agents = [agent.name]
+    
     request = geminidataanalytics.CreateConversationRequest(
         parent=f"projects/{project_id}/locations/global",
         conversation=conversation,
