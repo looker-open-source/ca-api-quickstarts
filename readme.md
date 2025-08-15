@@ -1,6 +1,6 @@
 # Conversational Analytics API Quickstart
 
-**Note 1:** This repository is not officially maintained like a 1st-party GCP product. 
+**Note 1:** This repository is not officially maintained like a 1st-party GCP product.
 
 **Note 2:** This app version the DataQnA API, we are working to support the [new geminidataanalytics API](https://cloud.google.com/gemini/docs/conversational-analytics-api/overview)
 
@@ -69,12 +69,9 @@ Create a `.env` file in the project root with the following variables:
 PROJECT_ID=your-project-id
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
-GEMINI_REGION=us-central1
-MODEL=gemini-2.0-flash-001
-BQ_LOCATION: BigQuery dataset location
+LOOKER_CLIENT_ID=your-looker-client-id
+LOOKER_CLIENT_SECRET=your-looker-client-secret
 REDIRECT_URI=http://localhost:8501
-TEMPERATURE: Temperature parameter for Gemini
-TOP_P: Top_p parameter for Gemini
 ```
 
 ### 6. Installation
@@ -122,9 +119,9 @@ Access the application at http://localhost:8501 in your web browser.
 6. **Select The Looker Model**: Check the boxes next to specific tables you want to query
 7. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
 8. **Select the Looker Explore**
-9. **Review and Finalize**: Make sure all your selection is accurate. 
+9. **Review and Finalize**: Make sure all your selection is accurate.
 10. **Update Agent**: Navigate to the chat page and start chatting with your Looker Data Agent.
-    
+
 ### Querying Your Data
 
 Once your agent is configured:

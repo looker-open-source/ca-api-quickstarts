@@ -1,11 +1,6 @@
-# === FILE: app.py ===
-
 import asyncio
-import time
-import os
 import streamlit as st
 from utils.auth import getAuthUrl, getCreds
-from google.cloud import geminidataanalytics
 from state import init_state
 
 def _init():

@@ -3,7 +3,7 @@ import os
 from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError
 from google.oauth2.credentials import Credentials
-from typing import Tuple, Optional, Dict, Any
+from typing import Optional
 from dotenv import load_dotenv
 from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError

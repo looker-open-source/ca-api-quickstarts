@@ -7,7 +7,6 @@ BIG_QUERY = "BigQuery"
 LOOKER = "Looker"
 
 def agents_main():
-    # --- MAIN UI: LIST AND SHOW ---
     with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.subheader("Data agents available")
         if st.button("Refresh agents"):
