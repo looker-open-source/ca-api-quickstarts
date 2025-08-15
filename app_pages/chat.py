@@ -1,8 +1,6 @@
-import os
 import streamlit as st
 from google.cloud import geminidataanalytics
 from state import change_agent, change_convo, create_convo
-from datetime import datetime
 from utils.chat import show_message
 
 AGENT_SELECT_KEY = "agent_selectbox_value"

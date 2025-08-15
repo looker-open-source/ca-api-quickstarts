@@ -3,7 +3,6 @@ import os
 from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError
 from google.oauth2.credentials import Credentials
-import asyncio
 from typing import Tuple, Optional, Dict, Any
 from dotenv import load_dotenv
 from httpx_oauth.clients.google import GoogleOAuth2
@@ -34,7 +33,7 @@ if not all((
     REDIRECT_URI,
     PROJECT_ID
 )):
-# TODO: remove call to st in these files
+    # TODO: remove call to st in these files
     st.error("Missing required environment variables. Check .env file."
              f"Current variables {GOOGLE_CLIENT_ID=} "
              f"{GOOGLE_CLIENT_SECRET=} {REDIRECT_URI=} ")

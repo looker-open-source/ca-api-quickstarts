@@ -1,11 +1,9 @@
-from pygments import highlight, lexers, formatters
 import pandas as pd
 import json as json_lib
 import altair as alt
-from IPython.display import display, HTML
 
 import proto
-from google.protobuf.json_format import MessageToDict, MessageToJson
+from google.protobuf.json_format import MessageToDict
 
 import streamlit as st
 
