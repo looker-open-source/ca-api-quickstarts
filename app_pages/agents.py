@@ -7,7 +7,6 @@ from google.api_core import exceptions as google_exceptions
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf.field_mask_pb2 import FieldMask
-from streamlit_cookies_manager import EncryptedCookieManager
 from state import fetch_agents_state
 
 BIG_QUERY = "BigQuery"
