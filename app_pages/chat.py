@@ -75,7 +75,6 @@ def conversations_main():
 
     if user_input:
         if st.session_state.convo_index == -1:
-            print("CALLED")
             create_convo()
 
         # Record user message
@@ -86,7 +85,6 @@ def conversations_main():
         # Assistant response
         with st.chat_message("assistant"):
             with st.spinner("Thinking... 🤖"):
-                print(st.session_state.convos)
                 current_convo = st.session_state.convos[st.session_state.convo_index]
                 current_agent = st.session_state.agents[st.session_state.agent_index]
                 project_id = st.session_state.project_id

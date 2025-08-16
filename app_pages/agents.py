@@ -2,6 +2,9 @@ import streamlit as st
 from google.api_core import exceptions as google_exceptions
 from google.cloud import geminidataanalytics
 from state import fetch_agents_state
+from utils.agents import get_time_delta_string
+import uuid
+import time
 
 BIG_QUERY = "BigQuery"
 LOOKER = "Looker"
@@ -13,7 +16,7 @@ def agents_main():
             with st.spinner("Refreshing..."):
                 fetch_agents_state()
 
-    with st.container(border=True, height=400):
+    with st.container(border=True, height=450):
         if len(st.session_state.agents) == 0:
             st.write("There are no agents available.")
         for ag in st.session_state.agents:
@@ -33,7 +36,7 @@ def agents_main():
                         key=f"updatedesc-{ag.name}"
                     )
                     st.write(f"**Created:** {ag.create_time}")
-                    st.write(f"**Updated:** {ag.update_time}") 
+                    st.write(f"**Updated:** {get_time_delta_string(ag.update_time)}") 
                 with col2:
                     system_instruction = st.text_area(
                         "**System instructions:**", 
@@ -62,6 +65,8 @@ def agents_main():
 
                             try:
                                 st.session_state.data_agent_client.update_data_agent(request=request)
+                                # Hack to just wait instead of checking operation status
+                                time.sleep(0.5)
                                 fetch_agents_state()
                                 st.success("Succesfully updated data agent")
                             except Exception as e:
@@ -73,13 +78,16 @@ def agents_main():
                             )
                             try:
                                 st.session_state.data_agent_client.delete_data_agent(request=request)
+                                # Hack to just wait instead of checking operation status
+                                time.sleep(0.5)
                                 fetch_agents_state()
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Error deleting Data Agent: {e}")
                                                 
 
     st.subheader("Create a data agent")
-    with st.container(border=True):
+    with st.container(border=True, key="create_agent_form"):
         col1, col2 = st.columns(2)
         with col1:
             display_name = st.text_input("Agent display name:")
@@ -103,6 +111,9 @@ def agents_main():
         
         if st.button("Create agent"):
             agent = geminidataanalytics.DataAgent()
+            # TODO: Remove id/name setting after bug fixed where id starting with number fails the create convo endpoint
+            id = f"a{uuid.uuid4()}"
+            agent.name=f"projects/{st.session_state.project_id}/locations/global/dataAgents/{id}"
             agent.display_name=display_name
             agent.description=description
 
@@ -125,8 +136,10 @@ def agents_main():
             published_context.system_instruction = system_instruction
 
             agent.data_analytics_agent.published_context = published_context
+            # TODO: Remove id/name setting after bug fixed where id starting with number fails the create convo endpoint
             request = geminidataanalytics.CreateDataAgentRequest(
                 parent=f"projects/{st.session_state.project_id}/locations/global",
+                data_agent_id=id,
                 data_agent=agent
             ) 
 
