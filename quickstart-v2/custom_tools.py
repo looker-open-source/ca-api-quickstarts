@@ -1,10 +1,10 @@
 # custom_tools.py
 import re
-import requests
-import streamlit as st
-import sympy
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import requests
+import streamlit as st
 
 
 def get_weather_description(wmo_code: int) -> str:
@@ -85,17 +85,3 @@ def get_weather(query: str, unit: str = "fahrenheit") -> str:
         return "There was an issue parsing the weather or time data from the API."
 
 
-def solve_math_problem(problem: str) -> str:
-    """
-    Solves mathematical problems using the SymPy library. 
-    Can handle algebra, calculus, and other mathematical expressions.
-    """
-    st.info("Tool Invocation: `solve_math_problem` was selected and is being executed.")
-    try:
-        expr = sympy.sympify(problem)
-        answer = sympy.simplify(expr)
-        return f"The solution to '{problem}' is: **{answer}**"
-    except (sympy.SympifyError, TypeError, SyntaxError):
-        return f"I couldn't understand '{problem}' as a valid mathematical expression."
-    except Exception as e:
-        return f"An unexpected error occurred: {e}"

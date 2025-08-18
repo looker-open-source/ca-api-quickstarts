@@ -1,7 +1,7 @@
-import os
 import getpass
+import os
 from datetime import datetime
-from google.protobuf.message import Message as PbMessage
+
 import altair as alt
 import google.auth
 import pandas as pd
@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import geminidataanalytics
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message as PbMessage
 from streamlit_extras.add_vertical_space import add_vertical_space
+
 from error_handling import handle_errors
 
 
@@ -18,10 +20,9 @@ def get_adc_credentials(scopes=None):
     creds, project = google.auth.default(scopes=scopes)
     if not creds.valid:
         creds.refresh(GoogleAuthRequest())
-    project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT") or project
+    project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv(
+        "GCP_PROJECT") or project
     return creds, project
-
-
 
 
 @handle_errors
@@ -71,30 +72,32 @@ def chat_part_one():
     st.session_state["gcp_project_id"] = project_id
 
     st.markdown(
-            """
+        """
             <style>
             h1 {
                 margin-bottom: 0rem !important;
             }
             </style>
             """,
-            unsafe_allow_html=True,
-        )
+        unsafe_allow_html=True,
+    )
 
     col1, col2 = st.columns([5, 1])
     with col1:
         add_vertical_space(5)
         st.title("Chat with your data")
 
-
     with col2:
         os_user = getpass.getuser()
         if os_user:
             with st.popover(f"👤 {os_user}", use_container_width=True, help="Click here to logout."):
-                st.markdown(f"**{os_user} authenticated with Application Default Credentials**")
+                st.markdown(
+                    f"**{os_user} authenticated with Application Default Credentials**")
 
-    data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=creds)
-    data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=creds)
+    data_agent_client = geminidataanalytics.DataAgentServiceClient(
+        credentials=creds)
+    data_chat_client = geminidataanalytics.DataChatServiceClient(
+        credentials=creds)
 
     SUGGESTED_QUESTIONS = {
         ("faa", "us_airports"): [
@@ -135,7 +138,6 @@ def chat_part_one():
     def handle_suggestion_click(question):
         st.session_state["prompt_from_suggestion"] = question
 
-
     def safe_to_dict(obj):
         to_dict = getattr(obj, "to_dict", None)
         if callable(to_dict):
@@ -153,7 +155,6 @@ def chat_part_one():
 
         return obj
 
-
     @st.cache_data
     def get_default_project_id():
         try:
@@ -169,8 +170,10 @@ def chat_part_one():
     bq_project_id = st.sidebar.text_input(
         "BQ Project ID", "bigquery-public-data", key="bq_project_id"
     )
-    bq_dataset_id = st.sidebar.text_input("BQ Dataset ID", "faa", key="bq_dataset_id")
-    bq_table_id = st.sidebar.text_input("BQ Table ID", "us_airports", key="bq_table_id")
+    bq_dataset_id = st.sidebar.text_input(
+        "BQ Dataset ID", "faa", key="bq_dataset_id")
+    bq_table_id = st.sidebar.text_input(
+        "BQ Table ID", "us_airports", key="bq_table_id")
 
     user_system_instruction = st.sidebar.text_area(
         "Agent Instructions", value="", key="system_instruction", height=200
@@ -180,7 +183,8 @@ def chat_part_one():
         st.rerun()
 
     if not all([billing_project, bq_project_id, bq_dataset_id, bq_table_id]):
-        st.warning("👋 Please complete all GCP and BigQuery details in the sidebar.")
+        st.warning(
+            "👋 Please complete all GCP and BigQuery details in the sidebar.")
         st.stop()
 
     if "data_agent_id" not in st.session_state:
@@ -256,7 +260,8 @@ def chat_part_one():
         prompt = user_input
 
     if prompt:
-        st.session_state["messages"].append({"role": "user", "content": prompt})
+        st.session_state["messages"].append(
+            {"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
@@ -266,7 +271,8 @@ def chat_part_one():
             all_dfs = []
             has_chart = False
             with st.spinner("Thinking... 🤖"):
-                user_msg = geminidataanalytics.Message(user_message={"text": prompt})
+                user_msg = geminidataanalytics.Message(
+                    user_message={"text": prompt})
                 convo_ref = geminidataanalytics.ConversationReference(
                     conversation=f"projects/{billing_project}/locations/global/conversations/{st.session_state['conversation_id']}",
                     data_agent_context={
@@ -287,12 +293,14 @@ def chat_part_one():
                             final_sql = m.data.generated_sql
                         rows = getattr(m.data.result, "data", []) or []
                         if rows:
-                            df_chunk = pd.DataFrame([safe_to_dict(r) for r in rows])
+                            df_chunk = pd.DataFrame(
+                                [safe_to_dict(r) for r in rows])
                             all_dfs.append(df_chunk)
                     if getattr(m, "chart", None):
                         has_chart = True
             final_df = (
-                pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
+                pd.concat(
+                    all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
             )
             content = {
                 "summary": full_summary,

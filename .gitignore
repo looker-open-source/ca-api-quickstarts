@@ -41,3 +41,5 @@ quickstart-v2/terraform/.terraform/providers/registry.terraform.io/hashicorp/tim
 quickstart-v2/delete.py
 quickstart-v2/delete.py
 .gitignore
+quickstart-v2/pages/6_drag.py
+quickstart-v2/text2speech.py

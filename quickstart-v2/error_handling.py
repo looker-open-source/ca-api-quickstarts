@@ -1,13 +1,13 @@
 # === FILE: error_handling.py (unchanged behavior; project from env/ADC) ===
 import functools
 import logging
+import os
 import sys
 import traceback
-import os
 
 import streamlit as st
-from google.cloud import logging as cloud_logging
 from google.api_core.exceptions import GoogleAPICallError, ServiceUnavailable
+from google.cloud import logging as cloud_logging
 
 # --- GCP Logging Setup ---
 logging.basicConfig(

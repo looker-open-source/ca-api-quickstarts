@@ -1,12 +1,14 @@
 # === FILE: app.py (ADC-only) ===
-import os
-import streamlit as st
 import getpass
-from dotenv import load_dotenv
+import os
+
 import google.auth
-from google.auth.transport.requests import Request as GoogleAuthRequest
+import streamlit as st
+from dotenv import load_dotenv
 from google.auth.transport.requests import AuthorizedSession
+from google.auth.transport.requests import Request as GoogleAuthRequest
 from streamlit_extras.add_vertical_space import add_vertical_space
+
 from app_secrets import get_secret
 from error_handling import handle_errors, handle_streamlit_exception
 
