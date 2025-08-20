@@ -103,14 +103,10 @@ def handle_chart_response(resp):
 def show_message(msg):
   m = msg.system_message
   if 'text' in m:
-    print('text')
     handle_text_response(getattr(m, 'text'))
   elif 'schema' in m:
-    print('schema')
     handle_schema_response(getattr(m, 'schema'))
   elif 'data' in m:
-    print('data')
     handle_data_response(getattr(m, 'data'))
   elif 'chart' in m:
-    print('chart')
     handle_chart_response(getattr(m, 'chart'))
