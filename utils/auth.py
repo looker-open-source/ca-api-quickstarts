@@ -33,7 +33,6 @@ if not all((
     REDIRECT_URI,
     PROJECT_ID
 )):
-    # TODO: remove call to st in these files
     st.error("Missing required environment variables. Check .env file."
              f"Current variables {GOOGLE_CLIENT_ID=} "
              f"{GOOGLE_CLIENT_SECRET=} {REDIRECT_URI=} ")

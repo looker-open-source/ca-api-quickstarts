@@ -1,5 +1,5 @@
 import pandas as pd
-import json as json_lib
+import json
 import altair as alt
 
 import proto
@@ -73,43 +73,44 @@ def handle_data_response(resp):
         else:
           d[field] = [el[field]]
 
-    st.dataframe(pd.DataFrame(d))
+    df = pd.DataFrame(d) 
+
+    st.dataframe(df)
+    st.session_state.lastDataFrame = df
 
 def handle_chart_response(resp):
-  def _value_to_dict(v):
+  def _convert(v):
     if isinstance(v, proto.marshal.collections.maps.MapComposite):
-      return _map_to_dict(v)
+      return {k: _convert(v) for k, v in v.items()}
     elif isinstance(v, proto.marshal.collections.RepeatedComposite):
-      return [_value_to_dict(el) for el in v]
+      return [_convert(el) for el in v]
     elif isinstance(v, (int, float, str, bool)):
       return v
     else:
       return MessageToDict(v)
 
-  def _map_to_dict(d):
-    out = {}
-    for k in d:
-      if isinstance(d[k], proto.marshal.collections.maps.MapComposite):
-        out[k] = _map_to_dict(d[k])
-      else:
-        out[k] = _value_to_dict(d[k])
-    return out
-
   if 'query' in resp:
     st.markdown(resp.query.instructions)
   elif 'result' in resp:
-    vegaConfig = resp.result.vega_config
-    vegaConfig_dict = _map_to_dict(vegaConfig)
-    chart = alt.Chart.from_json(json_lib.dumps(vegaConfig_dict))
-    st.altair_chart(chart, use_container_width=True)
+    # Hack from https://github.com/streamlit/streamlit/issues/6269
+    # TODO: Make use of st.altair_chart when either issues below are resolved:
+    # https://github.com/streamlit/streamlit/issues/6269
+    # https://github.com/streamlit/streamlit/issues/1196 
+    # Then we can make use of the altair example in our python sdk documentation
+    chart = alt.Chart.from_dict(_convert(resp.result.vega_config))
+    st.vega_lite_chart(json.loads(chart.to_json()))
 
 def show_message(msg):
   m = msg.system_message
   if 'text' in m:
+    print('text')
     handle_text_response(getattr(m, 'text'))
   elif 'schema' in m:
+    print('schema')
     handle_schema_response(getattr(m, 'schema'))
   elif 'data' in m:
+    print('data')
     handle_data_response(getattr(m, 'data'))
   elif 'chart' in m:
+    print('chart')
     handle_chart_response(getattr(m, 'chart'))
