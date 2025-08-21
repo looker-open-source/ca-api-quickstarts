@@ -64,9 +64,7 @@ def agents_main():
                             request = geminidataanalytics.UpdateDataAgentRequest(data_agent=agent, update_mask="*")
 
                             try:
-                                st.session_state.data_agent_client.update_data_agent(request=request)
-                                # Hack to just wait instead of checking operation status
-                                time.sleep(0.5)
+                                st.session_state.data_agent_client.update_data_agent(request=request).result()
                                 fetch_agents_state()
                                 st.success("Succesfully updated data agent")
                             except Exception as e:
@@ -77,9 +75,7 @@ def agents_main():
                                 name=ag.name
                             )
                             try:
-                                st.session_state.data_agent_client.delete_data_agent(request=request)
-                                # Hack to just wait instead of checking operation status
-                                time.sleep(0.5)
+                                operation = st.session_state.data_agent_client.delete_data_agent(request=request).result()
                                 fetch_agents_state()
                                 st.rerun()
                             except Exception as e:
