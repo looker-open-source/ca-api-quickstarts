@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-def get_time_delta_string(past_time: datetime):
+def get_time_delta_string(past_time: datetime, no_change_str):
     current_time = datetime.now(timezone.utc)
     time_difference = current_time - past_time
 
@@ -19,6 +19,6 @@ def get_time_delta_string(past_time: datetime):
         parts.append(f"{seconds} second{'s' if seconds > 1 else ''}")
     
     if not parts:
-        return "Just updated" # For very small or no difference
+        return no_change_str # For very small or no difference
 
     return ", ".join(parts) + " ago"

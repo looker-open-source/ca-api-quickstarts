@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from google.cloud import geminidataanalytics
-from state import change_agent, change_convo, create_convo
+from state import create_convo, fetch_convos_state, fetch_messages_state
 from utils.chat import show_message
 
 AGENT_SELECT_KEY = "agent_selectbox_value"
@@ -10,59 +10,95 @@ LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
 LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
 
 def handle_agent_select():
-    index = 0
-    for i, a in enumerate(st.session_state.agents):
-        if a.name == st.session_state[AGENT_SELECT_KEY].name:
-            index = i 
-    change_agent(index)
+    state = st.session_state
+    state.current_agent = state[AGENT_SELECT_KEY]
+    state.current_convo = None
+    state.convo_messages = []
+    st.spinner("Fetching past conversations")
+    fetch_convos_state(state.current_agent, False)
+    if len(state.convos) > 0:
+        st.spinner("Fetching last conversation's messages")
+        state.current_convo = state.convos[0]
+        fetch_messages_state(state.current_convo, False)
 
 def handle_convo_select():
-    index = 0
-    for i, c in enumerate(st.session_state.convos):
-        if c.name == st.session_state[CONVO_SELECT_KEY].name:
-            index = i 
-    change_convo(index)
+    state = st.session_state
+    state.current_convo = state[CONVO_SELECT_KEY]
+    state.convo_messages = []
+    st.spinner("Fetching past message")
+    fetch_messages_state(state.current_convo, False)
+
+def handle_create_convo():
+    state = st.session_state
+    st.spinner("Creating new convo")
+    state.current_convo = create_convo(agent=state.current_agent)
+    state.convo_messages = []
 
 def conversations_main():
+    state = st.session_state
+
+    if len(state.agents) == 0:
+        st.warning("Please create an agent first before chatting")
+        st.stop()
+
+    # Select Agent/Conversation dropdown bar
     with st.container(
-        border=True, 
-        horizontal=True, 
+        border=True,
+        horizontal=True,
         horizontal_alignment="distribute"
     ):
-        agent_index = st.session_state.agent_index
-        convo_index = st.session_state.convo_index
+        agent_index = None
+        if state.current_agent:
+            for index, agent in enumerate(state.agents):
+                if state.current_agent.name == agent.name:
+                    agent_index = index
+            if agent_index is None:
+                state.current_agent = None
+                state.current_convo = None
+                state.convo_messages = []
 
         st.selectbox(
             "Select agent to chat with:",
-            st.session_state.agents,
-            index=agent_index if agent_index > 0 else 0,
+            state.agents,
+            index=agent_index,
             key=AGENT_SELECT_KEY,
             format_func=lambda a: a.display_name,
             on_change=handle_agent_select
         )
+
+        convo_index = None
+        if state.current_convo:
+            for index, convo in enumerate(state.convos):
+                if state.current_convo.name == convo.name:
+                    convo_index = index
+
         st.selectbox(
             "Select previous conversation with agent (by last used):",
-            st.session_state.convos,
-            index=convo_index if convo_index > 0 else 0,
+            state.convos,
+            index=convo_index,
             key=CONVO_SELECT_KEY,
             format_func=lambda c: c.last_used_time.strftime("%m/%d/%Y, %H:%M:%S"),
             on_change=handle_convo_select
         )
         st.button(
             "Start new conversation with agent",
-            on_click=create_convo,
-            disabled=agent_index == -1
+            on_click=handle_create_convo,
+            disabled=len(state.agents) == 0
         )
 
+    # Chat 
     subheader_string = "Chat"
-    if st.session_state.convo_index >= 0:
-        convo = st.session_state.convos[st.session_state.convo_index]
-        subheader_string = f'Chat - Conversation started at {convo.create_time.strftime("%m/%d/%Y, %H:%M:%S")}' 
+    if state.current_convo:
+        subheader_string = f'Chat - Conversation started at {state.current_convo.create_time.strftime("%m/%d/%Y, %H:%M:%S")}'
 
     st.subheader(subheader_string)
 
+    if state.current_agent is None:
+        st.warning("Please select an agent above to chat with")
+        st.stop()
+
     # Chat history
-    for message in st.session_state.convo_messages:
+    for message in state.convo_messages:
         if "system_message" in message:
             with st.chat_message("assistant"):
                 show_message(message)
@@ -70,46 +106,41 @@ def conversations_main():
             with st.chat_message("user"):
                 st.markdown(message.user_message.text)
 
+
     # Chat input
     user_input = st.chat_input("What would you like to know?")
 
     if user_input:
-        if st.session_state.convo_index == -1:
-            create_convo()
-
+        if len(state.convos) == 0:
+            handle_create_convo()
         # Record user message
-        st.session_state.convo_messages.append(geminidataanalytics.Message(user_message={"text": user_input}))
+        state.convo_messages.append(geminidataanalytics.Message(user_message={"text": user_input}))
         with st.chat_message("user"):
             st.markdown(user_input)
 
         # Assistant response
         with st.chat_message("assistant"):
             with st.spinner("Thinking... 🤖"):
-                current_convo = st.session_state.convos[st.session_state.convo_index]
-                current_agent = st.session_state.agents[st.session_state.agent_index]
-                project_id = st.session_state.project_id
-                client = st.session_state.data_chat_client
-
                 user_msg = geminidataanalytics.Message(user_message={"text": user_input})
                 convo_ref = geminidataanalytics.ConversationReference()
-                convo_ref.conversation = current_convo.name
-                convo_ref.data_agent_context.data_agent = current_agent.name
+                convo_ref.conversation = state.current_convo.name
+                convo_ref.data_agent_context.data_agent = state.current_agent.name
 
-                if is_looker_agent(current_agent):
+                if is_looker_agent(state.current_agent):
                     credentials = geminidataanalytics.Credentials()
                     credentials.oauth.secret.client_id = LOOKER_CLIENT_ID
                     credentials.oauth.secret.client_secret = LOOKER_CLIENT_SECRET
                     convo_ref.data_agent_context.credentials = credentials
-                
+
 
                 req = geminidataanalytics.ChatRequest(
-                    parent=f"projects/{project_id}/locations/global",
+                    parent=f"projects/{state.project_id}/locations/global",
                     messages=[user_msg],
                     conversation_reference=convo_ref,
                 )
-                for message in client.chat(request=req):
+                for message in state.chat_client.chat(request=req):
                     show_message(message)
-                    st.session_state.convo_messages.append(message)
+                    state.convo_messages.append(message)
             st.rerun()
 
 def is_looker_agent(agent) -> bool:

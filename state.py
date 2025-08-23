@@ -11,38 +11,50 @@ LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
 LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
 
 # Depends on session_state.creds being set
+# Only runs once for whole session
 def init_state():
-    st.session_state.project_id = PROJECT_ID
-    st.session_state.agents = []
-    st.session_state.convos = []
-    st.session_state.convo_messages = []
+    state = st.session_state
 
-    st.session_state.data_agent_client = geminidataanalytics.DataAgentServiceClient(credentials=st.session_state.creds)
+    state.project_id = PROJECT_ID
+    state.agents = []
+    state.convos = []
+    state.convo_messages = []
 
-    st.session_state.data_chat_client = geminidataanalytics.DataChatServiceClient(credentials=st.session_state.creds)
+    state.agent_client = geminidataanalytics.DataAgentServiceClient(credentials=state.creds)
+
+    state.chat_client = geminidataanalytics.DataChatServiceClient(credentials=state.creds)
 
     fetch_agents_state(rerun=False)
-    st.session_state.agent_index = 0 if len(st.session_state.agents) > 0 else -1
 
-    fetch_convos_state(rerun=False)
-    st.session_state.convo_index = 0 if len(st.session_state.convos) > 0 else -1
+    state.current_agent = None
+    if state.agents:
+        state.current_agent = state.agents[-1]
 
-    fetch_messages_state(rerun=False)
+    if state.current_agent:
+        fetch_convos_state(agent=state.current_agent, rerun=False)
 
-    st.session_state.initialized = True
+    state.current_convo = None
+    if state.convos :
+        state.current_convo = state.convos[0]
+
+    if state.current_convo:
+        fetch_messages_state(convo=state.current_convo, rerun=False)
+
+    state.initialized = True
     st.rerun()
 
 # fetch all agents
-def fetch_agents_state(rerun=True): 
-    client = st.session_state.data_agent_client 
-    project_id = st.session_state.project_id
+def fetch_agents_state(rerun=True):
+    state = st.session_state
+    client = state.agent_client
+    project_id = state.project_id
 
     try:
         request = geminidataanalytics.ListDataAgentsRequest(
             parent=f"projects/{project_id}/locations/global"
         )
         agents = list(client.list_data_agents(request=request))
-        st.session_state.agents = agents if len(agents) > 0 else []
+        state.agents = agents if len(agents) > 0 else []
         if rerun:
             st.rerun()
     except google_exceptions.GoogleAPICallError as e:
@@ -51,13 +63,14 @@ def fetch_agents_state(rerun=True):
         st.error(f"Unexpected error: {e}")
 
 # Limited to fetching 100 conversations from selected agent
-def fetch_convos_state(rerun=True):
-    if st.session_state.agent_index == -1:
+def fetch_convos_state(agent=None, rerun=True):
+    if agent is None:
         return
 
-    client = st.session_state.data_chat_client 
-    agent = st.session_state.agents[st.session_state.agent_index]
-    project_id = st.session_state.project_id
+    state = st.session_state
+    state.convos = []
+    client = state.chat_client
+    project_id = state.project_id
 
     try:
         # TODO: get filter property on request to work
@@ -68,7 +81,7 @@ def fetch_convos_state(rerun=True):
 
         convos = list(client.list_conversations(request=request))
         convos = [c for c in convos if c.agents[0] == agent.name]
-        st.session_state.convos = convos if len(convos) > 0 else []
+        state.convos = convos if len(convos) > 0 else []
         if rerun:
             st.rerun()
 
@@ -77,52 +90,36 @@ def fetch_convos_state(rerun=True):
     except Exception as e:
         st.error(f"Unexpected error: {e}")
 
-# Fetch messages for selected convo 
-def fetch_messages_state(rerun=True):
-    if st.session_state.convo_index == -1:
+# Fetch messages for selected convo
+def fetch_messages_state(convo=None, rerun=True):
+    if convo is None:
         return
-    
-    client = st.session_state.data_chat_client 
-    convo = st.session_state.convos[st.session_state.convo_index]
+
+    state = st.session_state
+    state.convo_messages = []
+    client = state.chat_client
     request = geminidataanalytics.ListMessagesRequest(parent=convo.name)
 
     try:
         msgs = list(client.list_messages(request=request))
         msgs = [m.message for m in msgs]
-        st.session_state.convo_messages = list(reversed(msgs)) if len(msgs) > 0 else []
+        state.convo_messages = list(reversed(msgs)) if len(msgs) > 0 else []
         if rerun:
             st.rerun()
     except google_exceptions.GoogleAPICallError as e:
         st.error(f"API error fetching messages: {e}")
     except Exception as e:
-        st.error(f"Unexpected error: {e}") 
+        st.error(f"Unexpected error: {e}")
 
-# Changes agent index, fetches convos, clears or defaults convo index to 0 
-def change_agent(agent_index):
-    st.session_state.agent_index = agent_index
-    st.session_state.convo_index = -1
-    st.session_state.convo_messages = []
-    fetch_convos_state(rerun=False)
-    if st.session_state.convos:
-        change_convo(0)
-    
-# Changes convo index, clears messages, and fetch messages
-def change_convo(convo_index):
-    st.session_state.convo_index = convo_index
-    st.session_state.convo_messages = []
-    fetch_messages_state(rerun=False)
- 
-def create_convo():
-    if st.session_state.agent_index == -1:
-        return
-    
-    client = st.session_state.data_chat_client 
-    project_id = st.session_state.project_id
-    agent = st.session_state.agents[st.session_state.agent_index]
+# Creates new convo, appends to current convos
+def create_convo(agent=None):
+    state = st.session_state
+    client = state.chat_client
+    project_id = state.project_id
 
     conversation = geminidataanalytics.Conversation()
     conversation.agents = [agent.name]
-    
+
     request = geminidataanalytics.CreateConversationRequest(
         parent=f"projects/{project_id}/locations/global",
         conversation=conversation,
@@ -130,10 +127,9 @@ def create_convo():
 
     try:
         convo = client.create_conversation(request=request)
-        st.session_state.convos.append(convo)
-        st.session_state.convo_index = len(st.session_state.convos) - 1
-        st.session_state.convo_messages = []
+        state.convos.insert(0, convo)
+        return convo
     except google_exceptions.GoogleAPICallError as e:
-        st.error(f"API error fetching messages: {e}")
+        st.error(f"API error creating convo: {e}")
     except Exception as e:
-        st.error(f"Unexpected error: {e}") 
+        st.error(f"Unexpected error: {e}")
