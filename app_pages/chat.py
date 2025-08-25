@@ -1,110 +1,151 @@
+import os
 import streamlit as st
-import pandas as pd
-from backend import dataqna
-from app_pages.utils import display_dataqna_conversation
-from google.cloud import dataqna_v1alpha1
+from google.cloud import geminidataanalytics
+from state import create_convo, fetch_convos_state, fetch_messages_state
+from utils.chat import show_message
 
+AGENT_SELECT_KEY = "agent_selectbox_value"
+CONVO_SELECT_KEY = "agent_convo_value"
+LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
+LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
 
-def looker_chat():
-    # st.text(st.session_state)
-    # st.text(st.session_state['data_source'])
+def handle_agent_select():
+    state = st.session_state
+    state.current_agent = state[AGENT_SELECT_KEY]
+    state.current_convo = None
+    state.convo_messages = []
+    st.spinner("Fetching past conversations")
+    fetch_convos_state(state.current_agent, False)
+    if len(state.convos) > 0:
+        st.spinner("Fetching last conversation's messages")
+        state.current_convo = state.convos[0]
+        fetch_messages_state(state.current_convo, False)
 
-    if ("messages" not in st.session_state or
-            not isinstance(st.session_state.messages, list)):
-        st.session_state.messages = []
-    st.title("Looker")
-    st.text(st.session_state.messages)
+def handle_convo_select():
+    state = st.session_state
+    state.current_convo = state[CONVO_SELECT_KEY]
+    state.convo_messages = []
+    st.spinner("Fetching past message")
+    fetch_messages_state(state.current_convo, False)
 
-    dataqna_config_table = pd.DataFrame(
-                                        {
-                                            "Looker Host": [st.session_state.looker_host],
-                                            "LookML Model": [st.session_state.looker_model],
-                                            "Looker Explore": [st.session_state.looker_explore],
-                                            "System Instructions": [st.session_state.system_instruction]
-                                        })
-    st.table(dataqna_config_table)
+def handle_create_convo():
+    state = st.session_state
+    st.spinner("Creating new convo")
+    state.current_convo = create_convo(agent=state.current_agent)
+    state.convo_messages = []
 
-    # Display chat messages from history on app rerun
-    display_dataqna_conversation.display_dataqna_messages(
-        st.session_state.messages)
+def conversations_main():
+    state = st.session_state
 
-    # React to user input
-    if prompt := st.chat_input("What is up?"):
-        # Create user message and add to chat history
-        user_message = dataqna_v1alpha1.Message()
-        user_message.user_message.text = prompt
-        display_dataqna_conversation.display_dataqna_message(user_message)
-        st.session_state.messages.append(user_message)
+    if len(state.agents) == 0:
+        st.warning("Please create an agent first before chatting")
+        st.stop()
 
-        # Call the api
-        response = dataqna.generate_looker_response(
-            st.session_state.messages,
-            looker_instance_uri=st.session_state.looker_host,
-            lookml_model=st.session_state.looker_model,
-            explore=st.session_state.looker_explore,
-            looker_client_id=st.session_state.looker_client_id,
-            looker_client_secret=st.session_state.looker_secret,
-            project=st.session_state.project_id,
-            system_instruction=st.session_state.system_instruction,
-            token=st.session_state.token
+    # Select Agent/Conversation dropdown bar
+    with st.container(
+        border=True,
+        horizontal=True,
+        horizontal_alignment="distribute"
+    ):
+        agent_index = None
+        if state.current_agent:
+            for index, agent in enumerate(state.agents):
+                if state.current_agent.name == agent.name:
+                    agent_index = index
+            if agent_index is None:
+                state.current_agent = None
+                state.current_convo = None
+                state.convo_messages = []
+
+        st.selectbox(
+            "Select agent to chat with:",
+            state.agents,
+            index=agent_index,
+            key=AGENT_SELECT_KEY,
+            format_func=lambda a: a.display_name,
+            on_change=handle_agent_select
         )
 
-        for message in response:
-            display_dataqna_conversation.display_dataqna_message(message)
-            st.session_state.messages.append(message)
+        convo_index = None
+        if state.current_convo:
+            for index, convo in enumerate(state.convos):
+                if state.current_convo.name == convo.name:
+                    convo_index = index
 
-
-def bq_chat():
-    if ("messages" not in st.session_state or
-            not isinstance(st.session_state.messages, list)):
-        st.session_state.messages = []
-    if "dataset_id" not in st.session_state:
-        st.text("Please go back to the Agent factory and select a dataset")
-
-    if len(st.session_state.table_ids) == 0:
-        st.text("""Please click Agent Factory and select at least one table""")
-
-    if "dataset_id" and "dataqna_project_id" in st.session_state and len(st.session_state.table_ids) > 0:
-
-        dataqna_config_table = pd.DataFrame(
-                                        {
-                                            "Project": [st.session_state.dataqna_project_id],
-                                            "Dataset": [st.session_state.dataset_id],
-                                            "Tables": [st.session_state.table_ids]
-                                        })
-        st.table(dataqna_config_table)
-        if 'system_instruction' not in st.session_state:
-            st.session_state.system_instruction = ""
-        # st.code(st.session_state.system_instruction)
-    # Display chat messages from history on app rerun
-    display_dataqna_conversation.display_dataqna_messages(
-        st.session_state.messages)
-
-    # React to user input
-    if prompt := st.chat_input("What is up?"):
-        # Create user message and add to chat history
-        user_message = dataqna_v1alpha1.Message()
-        user_message.user_message.text = prompt
-        display_dataqna_conversation.display_dataqna_message(user_message)
-        st.session_state.messages.append(user_message)
-
-        # Call the api
-        response = dataqna.generate_response(
-             st.session_state.messages, st.session_state.project_id,
-             st.session_state.dataqna_project_id,
-             st.session_state.dataset_id, st.session_state.table_ids,
-             st.session_state.token,
-             system_instruction=st.session_state.system_instruction)
-        for message in response:
-            display_dataqna_conversation.display_dataqna_message(message)
-            st.session_state.messages.append(message)
-
-
-if "token" not in st.session_state:
-    st.switch_page("app.py")
-else:
-    if st.session_state["data_source"] == "Looker":
-        looker_chat(
+        st.selectbox(
+            "Select previous conversation with agent (by last used):",
+            state.convos,
+            index=convo_index,
+            key=CONVO_SELECT_KEY,
+            format_func=lambda c: c.last_used_time.strftime("%m/%d/%Y, %H:%M:%S"),
+            on_change=handle_convo_select
         )
-    else:
-        bq_chat()
+        st.button(
+            "Start new conversation with agent",
+            on_click=handle_create_convo,
+            disabled=len(state.agents) == 0
+        )
+
+    # Chat 
+    subheader_string = "Chat"
+    if state.current_convo:
+        subheader_string = f'Chat - Conversation started at {state.current_convo.create_time.strftime("%m/%d/%Y, %H:%M:%S")}'
+
+    st.subheader(subheader_string)
+
+    if state.current_agent is None:
+        st.warning("Please select an agent above to chat with")
+        st.stop()
+
+    # Chat history
+    for message in state.convo_messages:
+        if "system_message" in message:
+            with st.chat_message("assistant"):
+                show_message(message)
+        else:
+            with st.chat_message("user"):
+                st.markdown(message.user_message.text)
+
+
+    # Chat input
+    user_input = st.chat_input("What would you like to know?")
+
+    if user_input:
+        if len(state.convos) == 0:
+            handle_create_convo()
+        # Record user message
+        state.convo_messages.append(geminidataanalytics.Message(user_message={"text": user_input}))
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        # Assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking... 🤖"):
+                user_msg = geminidataanalytics.Message(user_message={"text": user_input})
+                convo_ref = geminidataanalytics.ConversationReference()
+                convo_ref.conversation = state.current_convo.name
+                convo_ref.data_agent_context.data_agent = state.current_agent.name
+
+                if is_looker_agent(state.current_agent):
+                    credentials = geminidataanalytics.Credentials()
+                    credentials.oauth.secret.client_id = LOOKER_CLIENT_ID
+                    credentials.oauth.secret.client_secret = LOOKER_CLIENT_SECRET
+                    convo_ref.data_agent_context.credentials = credentials
+
+
+                req = geminidataanalytics.ChatRequest(
+                    parent=f"projects/{state.project_id}/locations/global",
+                    messages=[user_msg],
+                    conversation_reference=convo_ref,
+                )
+                for message in state.chat_client.chat(request=req):
+                    show_message(message)
+                    state.convo_messages.append(message)
+            st.rerun()
+
+def is_looker_agent(agent) -> bool:
+    datasource_references = agent.data_analytics_agent.published_context.datasource_references
+
+    return "looker" in datasource_references
+
+conversations_main()

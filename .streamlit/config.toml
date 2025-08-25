@@ -1,0 +1,29 @@
+# .streamlit/config.toml
+
+[client]
+showErrorDetails = false
+
+
+[theme]
+# The base theme for the app.
+base = "light"
+
+# The main background color for the app.
+backgroundColor = "#FFFFFF"
+
+primaryColor = "#4285F4" # <<< THIS LINE CONTROLS THE FOCUS BORDER COLOR
+
+# The primary text color for the main app area.
+textColor = "#202124"
+
+# The background color for widgets like text inputs and select boxes.
+#secondaryBackgroundColor = "#eee8ecff"
+
+
+# Optional styling for radii
+baseRadius = "0.6rem"
+buttonRadius = "full"
+
+[theme.sidebar]
+# ← only the sidebar’s background
+backgroundColor          = "#f0f0f0ff"

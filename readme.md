@@ -1,58 +1,77 @@
-# Conversational Analytics API Quickstart
+# Conversational Analytics API Quickstart App
 
-**Note 1:** This repository is not officially maintained like a 1st-party GCP product. 
+## Status and Support
 
-**Note 2:** This app version the DataQnA API, we are working to support the [new geminidataanalytics API](https://cloud.google.com/gemini/docs/conversational-analytics-api/overview)
+This repo is maintained, but not warrantied by Google. Issues and feature requests can be reported via https://github.com/looker-open-source/ca-api-quickstarts/issues.
 
 ## Overview
 
-The Conversational Analytics API provides a natural language interface to query BigQuery and Looker data programmatically. This API enables data access through multiple integration points including embedded Looker dashboards, chat applications, and custom web applications. The solution helps organizations streamline ad-hoc data requests and provides self-service analytics capabilities.
+The Conversational Analytics API provides a natural language interface to query BigQuery and Looker data programmatically. The API enables data access through multiple integration points including embedded Looker dashboards, chat applications, and custom web applications. The API helps organizations streamline ad-hoc data requests and provides self-service analytics capabilities.
 
-This repository serves as a **reference architecture** for integrating with the Conversational Analytics API. The [documentation](https://cloud.google.com/looker/docs/dataqna-home) is also helpful for enablement, setup, and use. It demonstrates a complete implementation pattern that you can either deploy as-is for testing purposes or adapt to your specific production requirements. The application can be deployed in two ways: locally for development and testing, or on Google Cloud Run for a more production-like environment.
+This repository serves as a quick start app to integrate with the Conversational Analytics API. You can either deploy this example implementation as-is for testing purposes or adapt it to your specific production requirements. The application currently can only be deployed locally for development and testing.  Check out the [API documentation](https://cloud.google.com/gemini/docs/conversational-analytics-api/overview) for additional enablement, setup, and use.
 
-The API facilitates the implementation of Conversational Analytics Agents that allow for natural language inputs against:
-- Generative AI models with agentic functionality
-- Looker's semantic modeling layer for query accuracy improvements
-- An extensible API architecture for custom application development
+Try out this app to: 
+- Create, update, list, and delete data agents managed/used by the Conversational Analytics API
+- Configure BQ as a data source for the data agents
+- Configure Looker as a data sourc for the data agents to benefit from Looker's semantic modeling improved context and accuracy in conversations
+- Hold multi-turn conversations with the data agents
+- View past conversations with the data agents
+- Learn more about the extensible API architecture for your own custom application development
 
-**Note:** This is a pre-GA product intended for test environments only. It should not be used in production environments or to process personal data or other data subject to legal or regulatory compliance requirements. This requires access to our preview allowlist. You can fill out a form to [express interest here](https://docs.google.com/forms/d/e/1FAIpQLSfb-vFXVDrQDij-nsnh2MsykBEAQtrSinunQQGaqqkcyBbYtA/viewform).
+**Note:** This is a pre-GA product intended for test environments only. It should not be used in production environments or to process personal data or other data subject to legal or regulatory compliance requirements. 
+This repository is subject to the Pre-GA Offerings Terms of the Service Specific Terms and the Consent Addendum for Gemini for Google Cloud Trusted Tester Program
 
-## Demo Usage Videos
-- Quick 90s Create and Query an Agent [Video Link](https://www.youtube.com/watch?v=VbAdWmhKmOE)
-- 5 min Deploy app full featured [Video Link](#)
-## Getting Started
+## Getting Started (Local development)
 
-### 1. Environment Setup
+The local deployment option is ideal for:
+- Development and testing
+- Customizing the application
+- Individual developer use
+- Demonstrating capabilities in a controlled environment
+
+### 1. Setup environment
 
 First, ensure you have the following prerequisites installed:
-- Python 3.8 or higher
+- Python 3.11 or higher
 - Git
-- Docker (for Cloud Run deployment)
-- Terraform (for Cloud Run deployment)
 - Google Cloud SDK (gcloud CLI)
 
-### 2. API Enablement
+### 2. Configure permissions
 
-Enable the required APIs in your Google Cloud project:
+1. Enable the required APIs in your Google Cloud project (charges may apply):
 
 ```bash
-gcloud services enable dataqna.googleapis.com people.googleapis.com aiplatform.googleapis.com run.googleapis.com cloudbuild.googleapis.com --project=YOUR_PROJECT_ID
+gcloud services enable geminidataanalytics.googleapis.com bigquery.googleapis.com cloudaicompanion.googleapis.com people.googleapis.com aiplatform.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
-### 3. OAuth Configuration
+2. Any user that will use the app must have these IAM roles depending on the data 
+source they will query in the app:
 
-1. Navigate to the Google Cloud Console and select your project
-2. Go to "APIs & Services" > "Credentials"
-3. Click "Create credentials" > "OAuth client ID"
-4. Select "Web application" as the application type
-5. Configure the application name
-6. Set the "Application type" to "Web Application"
-7. For local deployment, add http://localhost:8501 to both "Authorized JavaScript origins" and "Authorized redirect URIs"
-8. For Cloud Run deployment, leave these fields for now (they'll be updated later)
-9. Ensure the Audience is set to "External"
-10. Click "Create" and note down the GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+BigQuery: Data Viewer, User 
+or
+Looker: Instance User
 
-### 4. Repository Setup
+### 3. Configure OAuth
+
+#### Create consent screen
+1. Navigate to the Google Cloud console and create an Oauth consent screen through the [consent screen wizard](https://console.cloud.google.com/auth/overview/create). If a consent screen already exists, adjust the following values accordingly through both the [branding](https://console.cloud.google.com/auth/branding) page and [audience](https://console.cloud.google.com/auth/audience) page.
+2. Set “App name” to your choice.
+3. Set “User support email” to your choice. 
+4. Set "Audience" to your choice.
+5. Set "Contact Information" to your choice.
+6. Select "Create" to create your consent screen.
+
+#### Create OAuth client
+
+1. Go to "APIs & Services" > "Credentials"
+2. Click "Create credentials" > "OAuth client ID"
+3. Select "Web application" as the “Application type”
+4. Configure the application name to your choice
+5. Add “http://localhost:8501” to "Authorized JavaScript origins"
+6. Add "http://localhost:8501  to "Authorized redirect URIs"
+7. Click "Create" and note down the Client ID and Client Secret for the next step.
+
+### 4. Setup local repository
 
 Clone the repository and navigate to the project directory:
 
@@ -61,83 +80,103 @@ git clone https://github.com/looker-open-source/ca-api-quickstarts.git
 cd ca-api-quickstarts
 ```
 
-### 5. Configuration
+### 5. Configure environment
 
 Create a `.env` file in the project root with the following variables:
 
 ```
-PROJECT_ID=your-project-id
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-GEMINI_REGION=us-central1
-MODEL=gemini-2.0-flash-001
-BQ_LOCATION: BigQuery dataset location
+PROJECT_ID=YOUR_PROJECT_ID
+GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_FROM_PREVIOUS
+GOOGLE_CLIENT_SECRET=YOUR_CLIENT_SECRET_FROM_PREVIOUS
 REDIRECT_URI=http://localhost:8501
-TEMPERATURE: Temperature parameter for Gemini
-TOP_P: Top_p parameter for Gemini
+
+# Uncomment next 2 lines, if using Looker as data source
+#LOOKER_CLIENT_ID=YOUR_LOOKER_CLIENT_ID
+#LOOKER_CLIENT_SECRET=YOUR_LOOKER_CLIENT_SECRET
 ```
 
-### 6. Installation
+If Looker will be a data source, retrieve the Looker client id and Looker client secret that will be used to access Looker. Read this [Looker authentication documentation](https://cloud.google.com/looker/docs/api-auth) if you need guidance.
 
-Install the required dependencies:
+
+### 6. Install dependencies
+
+Install the app's dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 7. Application Launch
+### 7. Launch app
 
-Start the application locally:
+Start the app locally:
 
 ```bash
 streamlit run app.py
 ```
 
-Access the application at http://localhost:8501 in your web browser.
+Access the app at http://localhost:8501 in your web browser.
 
-## Using the Application
 
-### Creating and Configuring Data Agents for BigQuery
+### 8. Clean up
 
-1. **Login**: Click "Login with Google" and authorize the application
-2. **Navigate to Agent Factory**: You'll be directed to the "Data Agent Configuration" page
-3. **Select Data Source**:
-   - Slect BigQuery as the DataSource
-   - Choose your BigQuery Project from the dropdown
-   - Select the relevant BigQuery Dataset
-5. **Select Tables**: Check the boxes next to specific tables you want to query
-6. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
-7. **Generate Configuration**: Click "Generate / Update Agent Config" and wait for the process to complete
-8. **Review and Finalize**: Examine the automatically generated YAML configuration and edit if needed
-9. **Update Agent**: Click "Update Agent with this Configuration"
+If needed, you can clean up your OAuth configuration.
 
-   ### Creating and Configuring Data Agents for Looker
+1. In google cloud console, navigate to "APIs & Services" > "Credentials"
+2. Edit the OAuth 2.0 Client ID used for the application
+3. Remove the redirect URIs associated with the deployed application
+4. Save changes
 
-1. **Login**: Click "Login with Google" and authorize the application
-2. **Navigate to Agent Factory**: You'll be directed to the "Data Agent Configuration" page
-3. **Select Data Source**:
-   - Select Looker as the DataSource
-4. Enter in your Looker Host, Client ID, and Client Secret.
-5. Click Validate Credentials.
-6. **Select The Looker Model**: Check the boxes next to specific tables you want to query
-7. **Define Instructions**: In the "System Instructions" text box, describe the agent's role and purpose (e.g., "You are an expert sales analyst. Help answer questions about our sales data and product performance.")
-8. **Select the Looker Explore**
-9. **Review and Finalize**: Make sure all your selection is accurate. 
-10. **Update Agent**: Navigate to the chat page and start chatting with your Looker Data Agent.
-    
-### Querying Your Data
+or 
+
+Delete the OAuth client. 
+
+## App usage guide
+
+### Create, update, view, and delete a data agent
+
+1. Select "Login with Google" and authorize the application
+2. You will land on the "Agents" page
+3. Scroll down to "Create Agent" form.
+4. Enter the "display name", "description", and "system instructions". [Tips for writing system instructions](https://cloud.google.com/gemini/docs/conversational-analytics-api/data-agent-system-instructions)
+5. If you want the agent to query Looker as a data source:
+   - Select "Looker" as the data source
+   - Enter the Looker instance url. e.g. "myinstance.looker.com"
+   - Enter the Looker model name
+   - Enter the Looker explore name
+6. Or, if you want the agent to query BigQuery as a data source:
+   - Select "BigQuery" as the DataSource
+   - Enter the id of the project containing the BigQuery dataset. e.g. "bigquery-public-data"
+   - Enter the name of the dataset. e.g. "san_francisco_trees"
+   - Enter the name of the table. e.g. "street_trees"
+7. Select "Create"
+8. View the data agents you've created in the agents page. 
+9. Select a data agent to expand it. 
+10. You can change all fields except "Data Source". Select "Update agent" after you've made your changes to save your changes to the agent.
+11. You can select "Delete agent" to delete the agent.
+
+### Query your data
 
 Once your agent is configured:
 1. Navigate to the "Chat" page
-2. Type natural language questions about your data
-3. View responses in text, table, and chart formats
-4. Ask follow-up questions that build on previous context
+2. The last created agent is automatically selected.
+3. Ask a question in the chat prompt field. A conversation will automatically be started
+3. View responses in text, table, and chart formats.
+4. Ask follow-up questions to hold a multi-turn conversation that builds on previous context.
 
 Example queries:
 - "How many products are in each category?"
 - "What were our top 5 customers by revenue last quarter?"
 - "Show me a bar chart of monthly sales trends"
 - "Compare performance across regions in a table"
+
+### View and continue past conversations
+1. Navigate to the "Chat" page.
+2. Select the agent you'd like to see past conversations with in the dropdown in the top bar.
+3. Select a past conversation from the dropdown.
+4. Check out the past messages from the selected conversation.
+5. You can continue the past conversation by asking another question in the chat prompt field.
+
+## Tips
 
 ### Understanding Semantic Layers
 
@@ -174,105 +213,3 @@ The application supports two types of semantic layers:
 - **For Existing Looker Users**: Leverage your existing LookML investment for highest accuracy
 - **For BigQuery-Only Users**: Use the YAML generation capabilities with manual refinement
 - **For Complex Use Cases**: Consider developing LookML models for critical data domains
-
-## Deployment Options
-
-This reference architecture offers two deployment paths to accommodate different usage scenarios:
-
-### Local Deployment
-
-The local deployment option is ideal for:
-- Development and testing
-- Customizing the application
-- Individual developer use
-- Demonstrating capabilities in a controlled environment
-
-The steps for local deployment are covered in the Getting Started section above.
-
-### Google Cloud Run Deployment
-
-The Cloud Run deployment option provides:
-- A production-like environment
-- Scalable infrastructure
-- Secure OAuth implementation
-- Shared access for team members
-
-To deploy to Cloud Run:
-
-1. Configure variables in the `deploy.sh` script:
-   - PROJECT_ID: GCP project ID for deployment
-   - REGION: GCP deployment region
-   - DATASTORE_PROJECT_ID: GCP project ID where datasets are located
-   - GOOGLE_CLIENT_ID: OAuth 2.0 Client ID
-   - GOOGLE_CLIENT_SECRET: OAuth 2.0 Client secret
-   - GEMINI_REGION: Location for Gemini calls
-   - BQ_LOCATION: BigQuery dataset location
-   - MODEL: Gemini model version
-   - TEMPERATURE: Temperature parameter for Gemini
-   - TOP_P: Top_p parameter for Gemini
-
-2. Run the deployment script:
-```bash
-./deploy.sh
-```
-If needed: `chmod +x deploy.sh`
-
-3. Configure OAuth 2.0 Redirect URI:
-   - After deployment, add the outputted redirect URI to your OAuth 2.0 Client ID configuration
-   - Add it to both "Authorized JavaScript origins" and "Authorized redirect URIs"
-   - Save changes and allow a few minutes for permissions to propagate
-
-## Technical Requirements
-
-### API Access
-
-- Data QnA API (allowlist required)
-- Google People API
-- Vertex AI API
-
-### Required IAM Permissions
-
-- BigQuery: Data Viewer, User
-- Vertex AI: Vertex AI User
-
-## Resource Cleanup
-
-### Cloud Run Resource Deprovisioning
-
-```bash
-terraform destroy --auto-approve
-```
-
-### Artifact Registry Cleanup
-
-```bash
-gcloud artifacts repositories delete cortado-docker-repo --location="${REGION}" --project="${PROJECT_ID}"
-```
-
-### OAuth Configuration Cleanup
-
-1. Navigate to "APIs & Services" > "Credentials"
-2. Edit the OAuth 2.0 Client ID used for the application
-3. Remove the redirect URIs associated with the deployed application
-4. Save changes
-
-## Product Roadmap and Caveats
-
-### Development Roadmap
-
-- Agent YAML generation built directly into the API
-- Migration to a new API surface with enhanced capabilities
-- Public Preview in Q2 2025
-
-### Important Caveats
-
-- This is a pre-GA product intended for test environments only
-- Subject to the Pre-GA Offerings Terms of the Service Specific Terms and the Consent Addendum for Gemini for Google Cloud Trusted Tester Program
-- The current API (dataqna.googleapis.com) is being migrated; documentation for migration will be provided
-- Some capabilities in the quickstart will be integrated into the core API in future releases
-
-## Support
-
-If you need access to this repo for a colleague, please email data-qna-api-feedback@google.com
-
-For more information, fill out the [interest form](https://docs.google.com/forms/d/e/1FAIpQLSfb-vFXVDrQDij-nsnh2MsykBEAQtrSinunQQGaqqkcyBbYtA/viewform) to stay updated on new API developments and transition documentation.
