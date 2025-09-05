@@ -47,9 +47,12 @@ def conversations_main():
         horizontal=True,
         horizontal_alignment="distribute"
     ):
+        get_agent_display_name = lambda a: a.display_name if hasattr(a, 'display_name') and a.display_name else a.name.split('/')[-1]
+        sorted_agents = sorted(state.agents, key=get_agent_display_name)
+
         agent_index = None
         if state.current_agent:
-            for index, agent in enumerate(state.agents):
+            for index, agent in enumerate(sorted_agents):
                 if state.current_agent.name == agent.name:
                     agent_index = index
             if agent_index is None:
@@ -59,10 +62,10 @@ def conversations_main():
 
         st.selectbox(
             "Select agent to chat with:",
-            state.agents,
+            sorted_agents,
             index=agent_index,
             key=AGENT_SELECT_KEY,
-            format_func=lambda a: a.display_name,
+            format_func=get_agent_display_name,
             on_change=handle_agent_select
         )
 
