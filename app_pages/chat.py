@@ -47,7 +47,9 @@ def conversations_main():
         horizontal=True,
         horizontal_alignment="distribute"
     ):
-        get_agent_display_name = lambda a: a.display_name if hasattr(a, 'display_name') and a.display_name else a.name.split('/')[-1]
+        def get_agent_display_name(a):
+            """Returns the agent's display name, or a fallback from its resource name."""
+            return getattr(a, 'display_name', None) or a.name.split('/')[-1]
         sorted_agents = sorted(state.agents, key=get_agent_display_name)
 
         agent_index = None
