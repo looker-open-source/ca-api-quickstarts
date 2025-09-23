@@ -70,7 +70,7 @@ Create a `secrets.toml` file in the `.streamlit` directory:
 [cloud]
 project_id = "YOUR_PROJECT_ID"
 
-# Uncomment next 3 lines, if using Looker as data source
+# Uncomment next 3 lines if using Looker as data source
 #[looker]
 #client_id = "YOUR_LOOKER_CLIENT_ID"
 #client_secret = "YOUR_LOOKER_CLIENT_SECRET"
