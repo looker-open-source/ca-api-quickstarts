@@ -51,25 +51,7 @@ BigQuery: Data Viewer, User
 or
 Looker: Instance User
 
-### 3. Configure OAuth
-
-#### Create consent screen
-1. Navigate to the Google Cloud console and create an Oauth consent screen through the [consent screen wizard](https://console.cloud.google.com/auth/overview/create). If a consent screen already exists, adjust the following values accordingly through both the [branding](https://console.cloud.google.com/auth/branding) page and [audience](https://console.cloud.google.com/auth/audience) page.
-2. Set “App name” to your choice.
-3. Set “User support email” to your choice. 
-4. Set "Audience" to your choice.
-5. Set "Contact Information" to your choice.
-6. Select "Create" to create your consent screen.
-
-#### Create OAuth client
-
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create credentials" > "OAuth client ID"
-3. Select "Web application" as the “Application type”
-4. Configure the application name to your choice
-5. Add “http://localhost:8501” to "Authorized JavaScript origins"
-6. Add "http://localhost:8501  to "Authorized redirect URIs"
-7. Click "Create" and note down the Client ID and Client Secret for the next step.
+### 3. Setup gcloud CLI's application default credentials (ADC)
 
 ### 4. Setup local repository
 
@@ -80,19 +62,18 @@ git clone https://github.com/looker-open-source/ca-api-quickstarts.git
 cd ca-api-quickstarts
 ```
 
-### 5. Configure environment
+### 5. Configure secrets/environment
 
-Create a `.env` file in the project root with the following variables:
+Create a `secrets.toml` file in the `.streamlit` directory:
 
 ```
-PROJECT_ID=YOUR_PROJECT_ID
-GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_FROM_PREVIOUS
-GOOGLE_CLIENT_SECRET=YOUR_CLIENT_SECRET_FROM_PREVIOUS
-REDIRECT_URI=http://localhost:8501
+[cloud]
+project_id = "YOUR_PROJECT_ID"
 
-# Uncomment next 2 lines, if using Looker as data source
-#LOOKER_CLIENT_ID=YOUR_LOOKER_CLIENT_ID
-#LOOKER_CLIENT_SECRET=YOUR_LOOKER_CLIENT_SECRET
+# Uncomment next 3 lines, if using Looker as data source
+#[looker]
+#client_id = "YOUR_LOOKER_CLIENT_ID"
+#client_secret = "YOUR_LOOKER_CLIENT_SECRET"
 ```
 
 If Looker will be a data source, retrieve the Looker client id and Looker client secret that will be used to access Looker. Read this [Looker authentication documentation](https://cloud.google.com/looker/docs/api-auth) if you need guidance.
@@ -115,20 +96,6 @@ streamlit run app.py
 ```
 
 Access the app at http://localhost:8501 in your web browser.
-
-
-### 8. Clean up
-
-If needed, you can clean up your OAuth configuration.
-
-1. In google cloud console, navigate to "APIs & Services" > "Credentials"
-2. Edit the OAuth 2.0 Client ID used for the application
-3. Remove the redirect URIs associated with the deployed application
-4. Save changes
-
-or 
-
-Delete the OAuth client. 
 
 ## App usage guide
 

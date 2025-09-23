@@ -2,27 +2,18 @@ import os
 import streamlit as st
 from google.cloud import geminidataanalytics
 from google.api_core import exceptions as google_exceptions
-from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-PROJECT_ID = os.getenv("PROJECT_ID")
-LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
-LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
-
-# Depends on session_state.creds being set
 # Only runs once for whole session
 def init_state():
     state = st.session_state
 
-    state.project_id = PROJECT_ID
     state.agents = []
     state.convos = []
     state.convo_messages = []
 
-    state.agent_client = geminidataanalytics.DataAgentServiceClient(credentials=state.creds)
+    state.agent_client = geminidataanalytics.DataAgentServiceClient()
 
-    state.chat_client = geminidataanalytics.DataChatServiceClient(credentials=state.creds)
+    state.chat_client = geminidataanalytics.DataChatServiceClient()
 
     fetch_agents_state(rerun=False)
 
@@ -47,7 +38,7 @@ def init_state():
 def fetch_agents_state(rerun=True):
     state = st.session_state
     client = state.agent_client
-    project_id = state.project_id
+    project_id = st.secrets.cloud.project_id
 
     try:
         request = geminidataanalytics.ListDataAgentsRequest(
@@ -70,7 +61,7 @@ def fetch_convos_state(agent=None, rerun=True):
     state = st.session_state
     state.convos = []
     client = state.chat_client
-    project_id = state.project_id
+    project_id = st.secrets.cloud.project_id
 
     try:
         # TODO: get filter property on request to work
@@ -115,7 +106,7 @@ def fetch_messages_state(convo=None, rerun=True):
 def create_convo(agent=None):
     state = st.session_state
     client = state.chat_client
-    project_id = state.project_id
+    project_id = st.secrets.cloud.project_id
 
     conversation = geminidataanalytics.Conversation()
     conversation.agents = [agent.name]

@@ -1,8 +1,7 @@
 # .streamlit/config.toml
 
 [client]
-showErrorDetails = false
-
+showErrorDetails = true
 
 [theme]
 # The base theme for the app.
@@ -18,7 +17,6 @@ textColor = "#202124"
 
 # The background color for widgets like text inputs and select boxes.
 #secondaryBackgroundColor = "#eee8ecff"
-
 
 # Optional styling for radii
 baseRadius = "0.6rem"

@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 from google.cloud import geminidataanalytics
 from state import create_convo, fetch_convos_state, fetch_messages_state
@@ -6,8 +5,6 @@ from utils.chat import show_message
 
 AGENT_SELECT_KEY = "agent_selectbox_value"
 CONVO_SELECT_KEY = "agent_convo_value"
-LOOKER_CLIENT_ID = os.getenv("LOOKER_CLIENT_ID")
-LOOKER_CLIENT_SECRET = os.getenv("LOOKER_CLIENT_SECRET")
 
 def handle_agent_select():
     state = st.session_state
@@ -91,7 +88,7 @@ def conversations_main():
             disabled=len(state.agents) == 0
         )
 
-    # Chat 
+    # Chat
     subheader_string = "Chat"
     if state.current_convo:
         subheader_string = f'Chat - Conversation started at {state.current_convo.create_time.strftime("%m/%d/%Y, %H:%M:%S")}'
@@ -133,13 +130,13 @@ def conversations_main():
 
                 if is_looker_agent(state.current_agent):
                     credentials = geminidataanalytics.Credentials()
-                    credentials.oauth.secret.client_id = LOOKER_CLIENT_ID
-                    credentials.oauth.secret.client_secret = LOOKER_CLIENT_SECRET
+                    credentials.oauth.secret.client_id = st.secrets.looker.client_id
+                    credentials.oauth.secret.client_secret = st.secrets.looker.secret
                     convo_ref.data_agent_context.credentials = credentials
 
 
                 req = geminidataanalytics.ChatRequest(
-                    parent=f"projects/{state.project_id}/locations/global",
+                    parent=f"projects/{st.secrets.cloud.project_id}/locations/global",
                     messages=[user_msg],
                     conversation_reference=convo_ref,
                 )
