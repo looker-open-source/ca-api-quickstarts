@@ -1,7 +1,14 @@
 import streamlit as st
 from state import init_state
 
-def _init():
+def main():
+    st.set_page_config(
+        page_title="CA API App",
+        page_icon="🗣️",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+
     if "initialized" not in st.session_state:
         with st.spinner("Loading"):
             init_state()
@@ -13,15 +20,5 @@ def _init():
                                 title="Chat",
                                 icon="🤖")])
         pg.run()
-
-def main():
-    st.set_page_config(
-        page_title="CA API App",
-        page_icon="🗣️",
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
-
-    _init()
 
 main()

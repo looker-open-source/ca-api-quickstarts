@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 from google.cloud import geminidataanalytics
 from google.api_core import exceptions as google_exceptions
@@ -12,7 +11,6 @@ def init_state():
     state.convo_messages = []
 
     state.agent_client = geminidataanalytics.DataAgentServiceClient()
-
     state.chat_client = geminidataanalytics.DataChatServiceClient()
 
     fetch_agents_state(rerun=False)

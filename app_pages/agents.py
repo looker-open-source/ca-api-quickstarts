@@ -4,7 +4,6 @@ from google.cloud import geminidataanalytics
 from state import fetch_agents_state
 from utils.agents import get_time_delta_string
 import uuid
-import time
 
 BIG_QUERY = "BigQuery"
 LOOKER = "Looker"
