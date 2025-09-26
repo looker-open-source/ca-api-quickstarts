@@ -41,7 +41,7 @@ You must have the following prerequisites installed in your local environment:
 1. Determine your Google Cloud billing project you will use for the quickstart app. Enable the required APIs on the Google Cloud billing project (charges may apply):
 
 ```bash
-gcloud services enable geminidataanalytics.googleapis.com bigquery.googleapis.com cloudaicompanion.googleapis.com people.googleapis.com aiplatform.googleapis.com --project=YOUR_PROJECT_ID
+gcloud services enable geminidataanalytics.googleapis.com bigquery.googleapis.com cloudaicompanion.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
 2. Determine the user or service account the quickstart app will use to access cloud resources. Setup gcloud CLI application default credentials for the account. Check out these [steps](https://cloud.google.com/docs/authentication/set-up-adc-local-dev-environment#local-user-cred) for more context.
