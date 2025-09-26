@@ -25,7 +25,7 @@ jobs:
       
       - name: Create .streamlit/secrets.toml file
         run: |
-          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
+          echo ${{ secrets.BASE64_SECRETS_TOML }} | base64 -d > .streamlit/secrets.toml
           cat .streamlit/secrets.toml
 
       - uses: streamlit/streamlit-app-action@v0.0.3
