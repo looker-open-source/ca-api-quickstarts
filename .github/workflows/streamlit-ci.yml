@@ -24,7 +24,9 @@ jobs:
           python-version: "3.11"
       
       - name: Create .streamlit/secrets.toml file
-        run: echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
+        run: |
+          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
+          cat .streamlit/secrets.toml
 
       - uses: streamlit/streamlit-app-action@v0.0.3
         with:
