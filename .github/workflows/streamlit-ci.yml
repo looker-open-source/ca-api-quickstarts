@@ -18,7 +18,7 @@ jobs:
           # TODO: Setup CI specific project and workload identity federation
           project_id: 'next25-workshop'
           workload_identity_provider: '${{ secrets.WORKLOAD_IDP }}'
-
+      
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
