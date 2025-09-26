@@ -80,8 +80,13 @@ project_id = "YOUR_PROJECT_ID"
 #client_secret = "YOUR_LOOKER_CLIENT_SECRET"
 ```
 
-If Looker will be a data source, retrieve the Looker client id and Looker client secret that will be used to access Looker. Read this [Looker authentication documentation](https://cloud.google.com/looker/docs/api-auth) if you need guidance.
+If you will use Looker as a data source:
 
+1. Determine the Looker account that will access Looker. 
+2. Ensure the Looker account has the [access_data](https://cloud.google.com/looker/docs/admin-panel-users-roles#access_data) and [gemini_in_looker](https://cloud.google.com/looker/docs/admin-panel-users-roles#gemini_in_looker) permissions. 
+3. Retrieve the [Looker account's client id and client secret](https://cloud.google.com/looker/docs/api-auth#authentication_with_an_sdk) and set it in the secrets.toml file.
+
+*The quickstart app auths with a [Looker API key](https://cloud.google.com/gemini/docs/conversational-analytics-api/authentication#looker-api-keys). The app DOES NOT use a [Looker access token](https://cloud.google.com/gemini/docs/conversational-analytics-api/authentication#looker-access-token).*
 
 ### 5. Install dependencies
 
