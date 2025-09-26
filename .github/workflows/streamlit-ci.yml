@@ -9,7 +9,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-      
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +17,7 @@ jobs:
         with:
           # TODO: Setup CI specific project and workload identity federation
           project_id: 'next25-workshop'
-          workload_identity_provider: 'projects/640484341613/locations/global/workloadIdentityPools/github-workflows'
+          workload_identity_provider: '${{ secrets.WORKLOAD_IDP }}'
 
       - uses: actions/setup-python@v5
         with:
