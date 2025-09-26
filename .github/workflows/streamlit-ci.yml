@@ -6,6 +6,7 @@ jobs:
   streamlit:
     runs-on: ubuntu-latest
 
+    # Permissions for Github OIDC Token for google auth action
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -23,6 +24,7 @@ jobs:
         with:
           python-version: "3.11"
       
+      # The app requires access to the secrets for init
       - name: Create .streamlit/secrets.toml file
         run: |
           echo ${{ secrets.BASE64_SECRETS_TOML }} | base64 -d > .streamlit/secrets.toml
