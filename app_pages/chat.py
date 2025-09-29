@@ -131,7 +131,7 @@ def conversations_main():
                 if is_looker_agent(state.current_agent):
                     credentials = geminidataanalytics.Credentials()
                     credentials.oauth.secret.client_id = st.secrets.looker.client_id
-                    credentials.oauth.secret.client_secret = st.secrets.looker.secret
+                    credentials.oauth.secret.client_secret = st.secrets.looker.client_secret
                     convo_ref.data_agent_context.credentials = credentials
 
 
