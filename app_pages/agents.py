@@ -101,7 +101,7 @@ def agents_main():
             if data_source == BIG_QUERY:
                 bq_project_id = st.text_input("BigQuery project ID:", placeholder="bigquery-public-data")
                 bq_dataset_id = st.text_input("BigQuery dataset ID:", placeholder="san_francisco_trees")
-                bq_table_id = st.text_input("BigQuery table ID:",placeholder="street_trees")
+                bq_table_ids = st.text_area("BigQuery table IDs (comma-separated):",placeholder="street_trees, another_table")
             else:
                 looker_instance_url=st.text_input("Looker instance URL:",
                 placeholder="myinstance.looker.com")
@@ -120,11 +120,15 @@ def agents_main():
             published_context = geminidataanalytics.Context()
             datasource_references = geminidataanalytics.DatasourceReferences()
             if data_source == BIG_QUERY:
-                bigquery_table_reference = geminidataanalytics.BigQueryTableReference()
-                bigquery_table_reference.project_id = bq_project_id
-                bigquery_table_reference.dataset_id = bq_dataset_id
-                bigquery_table_reference.table_id = bq_table_id
-                datasource_references.bq.table_references = [bigquery_table_reference]
+                table_references = []
+                for table_id in [id.strip() for id in bq_table_ids.split(',')]:
+                    if table_id:
+                        bigquery_table_reference = geminidataanalytics.BigQueryTableReference()
+                        bigquery_table_reference.project_id = bq_project_id
+                        bigquery_table_reference.dataset_id = bq_dataset_id
+                        bigquery_table_reference.table_id = table_id
+                        table_references.append(bigquery_table_reference)
+                datasource_references.bq.table_references = table_references
             else:
                 looker_explore_reference = geminidataanalytics.LookerExploreReference()
                 looker_explore_reference.looker_instance_uri = looker_instance_url
