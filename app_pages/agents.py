@@ -120,14 +120,15 @@ def agents_main():
             published_context = geminidataanalytics.Context()
             datasource_references = geminidataanalytics.DatasourceReferences()
             if data_source == BIG_QUERY:
-                table_references = []
-                for table_id in [id.strip() for id in bq_table_ids.split(',')]:
-                    if table_id:
-                        bigquery_table_reference = geminidataanalytics.BigQueryTableReference()
-                        bigquery_table_reference.project_id = bq_project_id
-                        bigquery_table_reference.dataset_id = bq_dataset_id
-                        bigquery_table_reference.table_id = table_id
-                        table_references.append(bigquery_table_reference)
+                table_ids = [tid.strip() for tid in bq_table_ids.split(',') if tid.strip()]
+                table_references = [
+                    geminidataanalytics.BigQueryTableReference(
+                        project_id=bq_project_id,
+                        dataset_id=bq_dataset_id,
+                        table_id=tid,
+                    )
+                    for tid in table_ids
+                ]
                 datasource_references.bq.table_references = table_references
             else:
                 looker_explore_reference = geminidataanalytics.LookerExploreReference()
