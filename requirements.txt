@@ -52,7 +52,7 @@ pyasn1_modules==0.4.1
 pydantic==2.10.6
 pydantic_core==2.27.2
 pydeck==0.9.1
-Pygments==2.19.1
+Pygments==2.20.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.1
