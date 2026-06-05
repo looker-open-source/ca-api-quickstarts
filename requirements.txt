@@ -46,7 +46,7 @@ pandas==2.2.3
 pillow==11.1.0
 proto-plus==1.26.0
 protobuf==5.29.5
-pyarrow==19.0.1
+pyarrow==23.0.1
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pydantic==2.10.6
